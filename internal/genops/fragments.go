@@ -190,15 +190,17 @@ func (fs *FragmentSet) ensureFields(def *ast.Definition) string {
 	fs.building[def.Name] = true
 	var b strings.Builder
 	fmt.Fprintf(&b, "fragment %s on %s {\n", name, def.Name)
-	fs.writeSelection(&b, def, "  ")
+	fs.writeSelection(&b, def, "  ", false)
 	b.WriteString("}\n")
 	delete(fs.building, def.Name)
 	fs.bodies[name] = b.String()
 	return name
 }
 
-// writeSelection renders def's non-deprecated fields at the given indent.
-func (fs *FragmentSet) writeSelection(b *strings.Builder, def *ast.Definition, indent string) {
+// writeSelection renders def's non-deprecated fields at the given indent. When
+// full is true (an operation's payload root), ref-able edges expand to the full
+// <T>Fields; otherwise (inside a fragment) they terminate at <T>Ref (B2).
+func (fs *FragmentSet) writeSelection(b *strings.Builder, def *ast.Definition, indent string, full bool) {
 	for _, f := range def.Fields {
 		if !selectable(f) {
 			continue
@@ -211,32 +213,45 @@ func (fs *FragmentSet) writeSelection(b *strings.Builder, def *ast.Definition, i
 		case ast.Scalar, ast.Enum:
 			fmt.Fprintf(b, "%s%s\n", indent, f.Name)
 		case ast.Object:
-			fs.writeObjectEdge(b, f, t, indent)
+			fs.writeObjectEdge(b, f, t, indent, full)
 		case ast.Union, ast.Interface:
 			fs.writeAbstractEdge(b, f, t, indent)
 		}
 	}
 }
 
-// writeObjectEdge renders an object-typed field: a flattened Ref spread for a
-// ref-able entity, a flattened Fields spread for a value type, or an inline
-// path-named selection for a mixed wrapper / terminated cycle.
-func (fs *FragmentSet) writeObjectEdge(b *strings.Builder, f *ast.FieldDefinition, t *ast.Definition, indent string) {
+// writeObjectEdge renders an object-typed field: a flattened Ref (or full Fields
+// at a payload root) spread for a ref-able entity, a flattened Fields spread for
+// a value type, or an inline path-named selection for a mixed wrapper /
+// terminated cycle.
+func (fs *FragmentSet) writeObjectEdge(b *strings.Builder, f *ast.FieldDefinition, t *ast.Definition, indent string, full bool) {
 	switch {
 	case IsRefable(t):
-		writeSpread(b, f.Name, fs.ensureRef(t), indent)
-	case isMixedWrapper(fs.schema, t):
-		fs.path.types[t.Name] = true
-		writeInline(b, f.Name, indent, func(inner string) {
-			fs.writeSelection(b, t, inner)
-		})
+		// A Ref is a leaf and a Fields fragment is memoised + on-path guarded, so
+		// both are cycle-safe.
+		if full {
+			writeSpread(b, f.Name, fs.ensureFields(t), indent)
+		} else {
+			writeSpread(b, f.Name, fs.ensureRef(t), indent)
+		}
 	case fs.building[t.Name]:
-		// Value-type cycle (e.g. Folder -> parent_folder -> Folder): terminate
-		// with a scalars-only inline selection to keep the fragment DAG acyclic.
+		// The walk revisited a type already on the path (e.g. Folder ->
+		// parent_folder -> Folder, or a self-referential wrapper like Package):
+		// terminate with a scalars-only inline selection so the graph stays
+		// finite and acyclic.
 		fs.path.types[t.Name] = true
 		writeInline(b, f.Name, indent, func(inner string) {
 			fs.writeScalarsOnly(b, t, inner)
 		})
+	case isMixedWrapper(fs.schema, t):
+		// Junction wrapper: inline (path-named), tracking it on the path so a
+		// recursive wrapper terminates above.
+		fs.path.types[t.Name] = true
+		fs.building[t.Name] = true
+		writeInline(b, f.Name, indent, func(inner string) {
+			fs.writeSelection(b, t, inner, false)
+		})
+		delete(fs.building, t.Name)
 	default:
 		writeSpread(b, f.Name, fs.ensureFields(t), indent)
 	}
@@ -246,18 +261,24 @@ func (fs *FragmentSet) writeObjectEdge(b *strings.Builder, f *ast.FieldDefinitio
 // __typename (A5: required for the generated UnmarshalJSON) plus one inline
 // fragment per concrete member, each spreading the member's Fields fragment.
 func (fs *FragmentSet) writeAbstractEdge(b *strings.Builder, f *ast.FieldDefinition, t *ast.Definition, indent string) {
-	fs.path.types[t.Name] = true
-	members := fs.abstractMembers(t)
-	inner := indent + "  "
 	fmt.Fprintf(b, "%s%s {\n", indent, f.Name)
-	fmt.Fprintf(b, "%s__typename\n", inner)
-	for _, m := range members {
-		mdef := fs.schema.Types[m]
-		fmt.Fprintf(b, "%s... on %s {\n", inner, m)
-		writeSpreadBody(b, fs.ensureFields(mdef), inner+"  ")
-		fmt.Fprintf(b, "%s}\n", inner)
-	}
+	fs.writeAbstractBody(b, t, indent+"  ")
 	fmt.Fprintf(b, "%s}\n", indent)
+}
+
+// writeAbstractBody renders the inside of a union/interface selection at indent:
+// __typename followed by one inline fragment per concrete member spreading its
+// Fields fragment. __typename is mandatory — the generated UnmarshalJSON keys on
+// it (A5).
+func (fs *FragmentSet) writeAbstractBody(b *strings.Builder, t *ast.Definition, indent string) {
+	fs.path.types[t.Name] = true
+	fmt.Fprintf(b, "%s__typename\n", indent)
+	for _, m := range fs.abstractMembers(t) {
+		mdef := fs.schema.Types[m]
+		fmt.Fprintf(b, "%s... on %s {\n", indent, m)
+		writeSpreadBody(b, fs.ensureFields(mdef), indent+"  ")
+		fmt.Fprintf(b, "%s}\n", indent)
+	}
 }
 
 // abstractMembers returns the concrete object types of a union (its Types) or
