@@ -97,6 +97,14 @@ func classifyExit(err error) ExitCode {
 		return ExitOK
 	}
 
+	// An explicitly carried code wins over any inference: destructive-refused,
+	// job-failed, still-running, and unconfirmed are detected by their own
+	// command paths and wrapped in an exitCodeError, never guessed from a cause.
+	var ece *exitCodeError
+	if errors.As(err, &ece) {
+		return ece.code
+	}
+
 	var ue *usageError
 	if errors.As(err, &ue) {
 		return ExitUsage

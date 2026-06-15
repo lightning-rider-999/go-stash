@@ -84,7 +84,7 @@
       "description": "**Goal:** go:embed schema/catalog.json; stash catalog prints it verbatim (no runtime SDL parsing).\n\n**Verify:** `./stash catalog | jq '.\"$defs\", .commands'` resolves; conformance catalog-coverage green.\n\n```json:metadata\n{\"files\":[\"cmd/stash/catalog.go\",\"cmd/stash/catalog_test.go\"],\"verifyCommand\":\"go build ./cmd/stash && ./stash catalog | jq .\",\"acceptanceCriteria\":[\"embedded artifact printed verbatim\",\"no runtime parsing\"],\"modelTier\":\"mechanical\"}\n```"
     },
     {
-      "id": 21, "subject": "Task 21: --wait three-state drop contract + streaming + gating + entrypoint", "status": "pending", "blockedBy": [14, 16],
+      "id": 21, "subject": "Task 21: --wait three-state drop contract + streaming + gating + entrypoint", "status": "completed", "blockedBy": [14, 16],
       "description": "**Goal:** --wait seeds with findJob then tracks jobsSubscribe; on drop: bounded reconnect -> findJob reconcile -> (terminal=exit; still-running=resume; indeterminate=unconfirmed+job id). --wait-timeout default unset=no client bound. NDJSON streamers. Destructive ops gated by --yes-i-understand -> destructive-refused. main.go entrypoint + env/flag config.\n\n**Verify:** `go test -race ./cmd/stash -run TestWait` (synctest); integration: real multi-minute scan over idle socket (Task 23).\n\n```json:metadata\n{\"files\":[\"cmd/stash/wait.go\",\"cmd/stash/stream.go\",\"cmd/stash/main.go\"],\"verifyCommand\":\"go test -race ./cmd/stash -run TestWait\",\"acceptanceCriteria\":[\"three-state drop contract\",\"--wait-timeout default unset\",\"NDJSON streamers\",\"destructive gating\"],\"modelTier\":\"complex\"}\n```"
     },
     {

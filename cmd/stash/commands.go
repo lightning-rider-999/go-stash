@@ -60,6 +60,11 @@ func buildRootCommand() *cobra.Command {
 			"default.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// ArbitraryArgs bypasses cobra's root-only "unknown command" arg check so
+		// an unrecognised top-level command reaches helpOrUnknown and is reported
+		// as a usage error (exit 2), consistent with the resource groups.
+		Args: cobra.ArbitraryArgs,
+		RunE: helpOrUnknown,
 	}
 	wrapCobraUsageErrors(root)
 
@@ -89,6 +94,17 @@ func buildRootCommand() *cobra.Command {
 	return root
 }
 
+// helpOrUnknown is the RunE for the root and resource-group commands. With no
+// arguments it prints help and exits 0; an unrecognised subcommand becomes a
+// usage error (exit 2) rather than cobra's default of a silent help dump on a
+// zero exit, so an agent that mistypes a command sees a non-zero status.
+func helpOrUnknown(c *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return newUsageError(fmt.Errorf("unknown command %q for %q", args[0], c.CommandPath()))
+	}
+	return c.Help()
+}
+
 // ensureGroups walks the prefix segments, creating and caching a group command
 // for each, and returns the command the leaf should attach to. An empty prefix
 // returns the root.
@@ -99,8 +115,11 @@ func ensureGroups(root *cobra.Command, groups map[string]*cobra.Command, prefix 
 		g, ok := groups[key]
 		if !ok {
 			g = &cobra.Command{
-				Use:   prefix[i],
-				Short: fmt.Sprintf("%s operations", prefix[i]),
+				Use:           prefix[i],
+				Short:         fmt.Sprintf("%s operations", prefix[i]),
+				SilenceUsage:  true,
+				SilenceErrors: true,
+				RunE:          helpOrUnknown,
 			}
 			groups[key] = g
 			parent.AddCommand(g)
@@ -110,10 +129,38 @@ func ensureGroups(root *cobra.Command, groups map[string]*cobra.Command, prefix 
 	return parent
 }
 
-// newLeafCommand builds the leaf cobra command for one operation spec. Its RunE
-// resolves variables and dispatches to the executor. Subscriptions register but
-// error until Task 21 wires streaming, so the command still appears in help.
+// clientResolver builds the *stash.Client a leaf command runs against. The seam
+// exists so a test can drive the full RunE — gating, --wait, streaming — against
+// an in-memory client without setting environment variables. Production passes
+// clientFromFlags; a test passes a closure returning its own client.
+type clientResolver func(cmd *cobra.Command) (*stash.Client, error)
+
+// newLeafCommand builds the leaf cobra command for one operation spec, resolving
+// its client from the --url/--api-key flags.
 func newLeafCommand(spec commandSpec) *cobra.Command {
+	return newLeafCommandResolver(spec, clientFromFlags)
+}
+
+// newLeafCommandWithClient builds a leaf bound to a fixed client, for tests.
+func newLeafCommandWithClient(spec commandSpec, c *stash.Client) *cobra.Command {
+	return newLeafCommandResolver(spec, func(*cobra.Command) (*stash.Client, error) {
+		return c, nil
+	})
+}
+
+// newLeafCommandResolver builds the leaf cobra command for one operation spec
+// using resolve to obtain the client. The RunE wiring, in order:
+//
+//  1. Destructive gate. A destructive op without --yes-i-understand refuses
+//     before any client is built, so a refused op never reaches the server.
+//  2. Subscription. The three subscription leaves stream NDJSON events until ctx
+//     is cancelled; see streamForSpec.
+//  3. Variables + client. Read --input/flags, build the client.
+//  4. Job-returning + --wait. A job-returning mutation invoked with --wait runs,
+//     extracts the job ID, and tracks the job to a terminal state; see runWait.
+//     Without --wait it falls through to the plain execute path.
+//  5. Plain execute. runOperation runs the op and renders the response.
+func newLeafCommandResolver(spec commandSpec, resolve clientResolver) *cobra.Command {
 	leaf := &cobra.Command{
 		Use:   spec.Path[len(spec.Path)-1],
 		Short: shortFor(spec),
@@ -122,10 +169,20 @@ func newLeafCommand(spec commandSpec) *cobra.Command {
 		leaf.Deprecated = "deprecated in the Stash schema; prefer the current operation"
 	}
 	addConvenienceFlags(leaf, spec)
+	addDestructiveFlag(leaf, spec)
+	addWaitFlags(leaf, spec)
+
 	leaf.RunE = func(cmd *cobra.Command, _ []string) error {
+		if err := checkDestructiveGate(cmd, spec); err != nil {
+			return err
+		}
+
 		if spec.Kind == "subscription" {
-			// TODO(Task 21): wire --wait/streaming for subscriptions.
-			return fmt.Errorf("%s: streaming not yet wired", strings.Join(spec.Path, " "))
+			client, err := resolve(cmd)
+			if err != nil {
+				return err
+			}
+			return streamForSpec(cmd.Context(), client, spec, cmd.OutOrStdout())
 		}
 
 		vars, err := resolveVariables(cmd, spec)
@@ -133,9 +190,14 @@ func newLeafCommand(spec commandSpec) *cobra.Command {
 			return err
 		}
 
-		client, err := clientFromFlags(cmd)
+		client, err := resolve(cmd)
 		if err != nil {
 			return err
+		}
+
+		if spec.JobReturning && waitRequested(cmd) {
+			format, _ := cmd.Flags().GetString("output")
+			return runWait(cmd, client, spec, vars, format)
 		}
 
 		format, _ := cmd.Flags().GetString("output")
