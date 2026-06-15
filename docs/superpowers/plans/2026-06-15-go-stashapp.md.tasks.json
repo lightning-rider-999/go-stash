@@ -40,19 +40,19 @@
       "description": "**Goal:** Keep paths in the default scene tier but redact the apikey query param from URLs in CLI output; prove no ApiKey JWT appears in default-policy output (B4, intersects §11).\n\n**Acceptance Criteria:**\n- [ ] redactor strips/REDACTEDs apikey query param from any URL string\n- [ ] golden: a sample findScenes default payload through the output layer contains no eyJ/apikey= token\n\n**Verify:** `go test ./cmd/stash -run TestRedact -v`\n\n```json:metadata\n{\"files\":[\"cmd/stash/redact.go\",\"cmd/stash/redact_test.go\"],\"verifyCommand\":\"go test ./cmd/stash -run TestRedact -v\",\"acceptanceCriteria\":[\"apikey param redacted\",\"no JWT in default output (golden)\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 10, "subject": "Task 10: stash.Client (transport, ApiKey, URL normalize, options, env)", "status": "pending", "blockedBy": [8],
+      "id": 10, "subject": "Task 10: stash.Client (transport, ApiKey, URL normalize, options, env)", "status": "completed", "blockedBy": [8],
       "description": "**Goal:** Client wrapping genqlient's HTTP client; ApiKey via RoundTripper; URL normalize (append /graphql; derive ws); functional options + env fallback; default bounded Timeout on HTTP path only; secret never logged.\n\n**Acceptance Criteria:**\n- [ ] builds from env or options; ApiKey header on every request; URL normalized; ws URL derived\n- [ ] secret redacted in slog (LogValue)\n\n**Verify:** `go test ./stash -run TestClient -v` (httptest asserts ApiKey header + normalized path).\n\n```json:metadata\n{\"files\":[\"stash/client.go\",\"stash/options.go\",\"stash/client_test.go\"],\"verifyCommand\":\"go test ./stash -run TestClient -v\",\"acceptanceCriteria\":[\"env+options\",\"ApiKey header\",\"URL+ws normalize\",\"secret redacted\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 11, "subject": "Task 11: Typed error model + envelope", "status": "pending", "blockedBy": [10],
+      "id": 11, "subject": "Task 11: Typed error model + envelope", "status": "completed", "blockedBy": [10],
       "description": "**Goal:** *GraphQLError (carries the error list), transport/auth categories, %w chains, errors.As-friendly; the CLI error-envelope shape (code,message,graphql_errors,field,retryable).\n\n**Verify:** `go test ./stash -run TestErrors -v` (GraphQL errors -> *GraphQLError; categories via errors.As).\n\n```json:metadata\n{\"files\":[\"stash/errors.go\",\"stash/errors_test.go\"],\"verifyCommand\":\"go test ./stash -run TestErrors -v\",\"acceptanceCriteria\":[\"*GraphQLError carries list\",\"categories via errors.As\",\"%w chains\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 12, "subject": "Task 12: Version handshake + compat", "status": "pending", "blockedBy": [10],
+      "id": 12, "subject": "Task 12: Version handshake + compat", "status": "completed", "blockedBy": [10],
       "description": "**Goal:** Client.Version(ctx) via version{version hash build_time}; compat vs stash.SchemaVersion (warn; CLI surfaces a distinct exit code/field).\n\n**Verify:** `go test ./stash -run TestVersion -v`; integration: live handshake returns v0.31.1.\n\n```json:metadata\n{\"files\":[\"stash/version.go\",\"stash/version_test.go\"],\"verifyCommand\":\"go test ./stash -run TestVersion -v\",\"acceptanceCriteria\":[\"Version() returns instance version\",\"mismatch flagged\"],\"modelTier\":\"mechanical\"}\n```"
     },
     {
-      "id": 13, "subject": "Task 13: Bounded fan-out (errgroup.WithContext + SetLimit)", "status": "pending", "blockedBy": [10],
+      "id": 13, "subject": "Task 13: Bounded fan-out (errgroup.WithContext + SetLimit)", "status": "completed", "blockedBy": [10],
       "description": "**Goal:** errgroup.WithContext (first error cancels) + SetLimit configurable bound; no retries.\n\n**Verify:** `go test -race ./stash -run TestBatch -v` (bound respected; first error cancels; no retry).\n\n```json:metadata\n{\"files\":[\"stash/batch.go\",\"stash/batch_test.go\"],\"verifyCommand\":\"go test -race ./stash -run TestBatch -v\",\"acceptanceCriteria\":[\"bound respected\",\"first error cancels\",\"no retry\"],\"modelTier\":\"standard\"}\n```"
     },
     {
