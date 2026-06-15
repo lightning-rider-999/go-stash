@@ -53,6 +53,10 @@ func run(schemaDir, overlayPath string) error {
 		{"operations/generated/operations.graphql", []byte(header + c.Operations)},
 		{"operations/manifest.json", manifestJSON},
 		{"schema/catalog.json", catalogJSON},
+		// A byte-identical copy lives beside the CLI so `stash catalog` can
+		// embed it with go:embed (which cannot reach `..` paths). The check
+		// gate diffs both against a fresh `task generate` to keep them in sync.
+		{"cmd/stash/catalog.json", catalogJSON},
 		{"cmd/stash/gen_commands.go", commandsGo},
 	} {
 		if err := writeFile(w.path, w.content); err != nil {

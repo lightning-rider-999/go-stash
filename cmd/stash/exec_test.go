@@ -54,7 +54,7 @@ func TestRunOperationData(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := runOperation(context.Background(), c, spec, nil, &out); err != nil {
+	if err := runOperation(context.Background(), c, spec, nil, "json", &out); err != nil {
 		t.Fatalf("runOperation: %v", err)
 	}
 
@@ -91,7 +91,7 @@ func TestRunOperationForwardsVariables(t *testing.T) {
 
 	vars := map[string]json.RawMessage{"id": json.RawMessage(`"42"`)}
 	var out bytes.Buffer
-	if err := runOperation(context.Background(), c, spec, vars, &out); err != nil {
+	if err := runOperation(context.Background(), c, spec, vars, "json", &out); err != nil {
 		t.Fatalf("runOperation: %v", err)
 	}
 	if !bytes.Contains(fs.lastBody, []byte(`"id":"42"`)) {
@@ -111,7 +111,7 @@ func TestRunOperationGraphQLError(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := runOperation(context.Background(), c, spec, nil, &out)
+	err := runOperation(context.Background(), c, spec, nil, "json", &out)
 	if err == nil {
 		t.Fatal("expected a GraphQL error, got nil")
 	}

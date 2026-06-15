@@ -48,7 +48,7 @@ type commandSpec struct {
 //
 //	--url        Stash base URL (falls back to STASHAPP_URL in the client)
 //	--api-key    Stash API key (falls back to STASHAPP_API_KEY in the client)
-//	--output/-o  output format (only "json" for now; Task 17 adds the rest)
+//	--output/-o  output format: json (default), ndjson, table, yaml
 //	--input      variables source: a JSON file path, or "-" for stdin
 func buildRootCommand() *cobra.Command {
 	root := &cobra.Command{
@@ -64,7 +64,7 @@ func buildRootCommand() *cobra.Command {
 
 	root.PersistentFlags().String("url", "", "Stash base URL (default $STASHAPP_URL)")
 	root.PersistentFlags().String("api-key", "", "Stash API key (default $STASHAPP_API_KEY)")
-	root.PersistentFlags().StringP("output", "o", "json", "output format: json")
+	root.PersistentFlags().StringP("output", "o", "json", "output format: "+strings.Join(outputFormats, ", "))
 	root.PersistentFlags().String("input", "", "variables source: JSON file path, or \"-\" for stdin")
 
 	// groups caches intermediate group commands by their joined prefix so a
@@ -81,6 +81,10 @@ func buildRootCommand() *cobra.Command {
 		leaf := newLeafCommand(spec)
 		parent.AddCommand(leaf)
 	}
+
+	// catalog is a built-in (not a generated GraphQL operation): it serves the
+	// embedded operation catalog without touching the server.
+	root.AddCommand(newCatalogCommand())
 	return root
 }
 
@@ -132,7 +136,8 @@ func newLeafCommand(spec commandSpec) *cobra.Command {
 			return err
 		}
 
-		return runOperation(cmd.Context(), client, spec, vars, cmd.OutOrStdout())
+		format, _ := cmd.Flags().GetString("output")
+		return runOperation(cmd.Context(), client, spec, vars, format, cmd.OutOrStdout())
 	}
 	return leaf
 }

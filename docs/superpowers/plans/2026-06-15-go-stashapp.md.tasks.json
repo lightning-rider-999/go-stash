@@ -36,7 +36,7 @@
       "description": "**Goal:** Wire genqlient over the SDL + generated/override ops with the §10 scalar bindings; go generate runs genops then genqlient in order; the x/tools bump survives.\n\n**Acceptance Criteria:**\n- [ ] bindings: Time->time.Time, Int64->int64, Map/Any->json.RawMessage, BoolMap->map[string]bool, Timestamp->string, Upload->stash.Upload, PluginConfigMap->map[string]any\n- [ ] task generate clean from fresh checkout; go build green\n- [ ] codegen-freshness: regenerate + git diff --exit-code clean\n\n**Verify:** `task generate && go build ./... && task generate && git diff --exit-code`\n\n```json:metadata\n{\"files\":[\"genqlient.yaml\",\"generate.go\"],\"verifyCommand\":\"task generate && go build ./... && task generate && git diff --exit-code\",\"acceptanceCriteria\":[\"all scalar bindings\",\"ordered generate\",\"freshness clean\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 9, "subject": "Task 9: ApiKey redaction for paths.stream + golden test", "status": "pending", "blockedBy": [17],
+      "id": 9, "subject": "Task 9: ApiKey redaction for paths.stream + golden test", "status": "completed", "blockedBy": [17],
       "description": "**Goal:** Keep paths in the default scene tier but redact the apikey query param from URLs in CLI output; prove no ApiKey JWT appears in default-policy output (B4, intersects §11).\n\n**Acceptance Criteria:**\n- [ ] redactor strips/REDACTEDs apikey query param from any URL string\n- [ ] golden: a sample findScenes default payload through the output layer contains no eyJ/apikey= token\n\n**Verify:** `go test ./cmd/stash -run TestRedact -v`\n\n```json:metadata\n{\"files\":[\"cmd/stash/redact.go\",\"cmd/stash/redact_test.go\"],\"verifyCommand\":\"go test ./cmd/stash -run TestRedact -v\",\"acceptanceCriteria\":[\"apikey param redacted\",\"no JWT in default output (golden)\"],\"modelTier\":\"standard\"}\n```"
     },
     {
@@ -68,7 +68,7 @@
       "description": "**Goal:** Emit cmd/stash/gen_commands.go from manifest.json under `stash <resource> <verb>`; subscriptions -> job watch/log tail/scan watch; islands hand-wired.\n\n**Verify:** `task generate && go build ./cmd/stash && ./stash --help`; conformance asserts a command per manifest op.\n\n```json:metadata\n{\"files\":[\"internal/genops/cli.go\",\"cmd/stash/gen_commands.go\"],\"verifyCommand\":\"task generate && go build ./cmd/stash\",\"acceptanceCriteria\":[\"command per manifest op\",\"3 subscription streamers\",\"regenerates with surface\"],\"modelTier\":\"complex\"}\n```"
     },
     {
-      "id": 17, "subject": "Task 17: CLI output - JSON default, NDJSON, -o table|yaml", "status": "pending", "blockedBy": [16],
+      "id": 17, "subject": "Task 17: CLI output - JSON default, NDJSON, -o table|yaml", "status": "completed", "blockedBy": [16],
       "description": "**Goal:** JSON by default always (no TTY detection); NDJSON for lists/streams; -o table|yaml for humans; no built-in field filtering.\n\n**Verify:** `go test ./cmd/stash -run TestOutput -v`.\n\n```json:metadata\n{\"files\":[\"cmd/stash/output.go\",\"cmd/stash/output_test.go\"],\"verifyCommand\":\"go test ./cmd/stash -run TestOutput -v\",\"acceptanceCriteria\":[\"JSON default\",\"NDJSON streams\",\"-o table/yaml\"],\"modelTier\":\"standard\"}\n```"
     },
     {
@@ -80,7 +80,7 @@
       "description": "**Goal:** Structured JSON envelope on stderr; frozen (name,integer) taxonomy in AGENTS.md (ok,usage,auth,transport,validation,server-fault,not-found,destructive-refused,job-failed,still-running,unconfirmed); envelope code = name, exit status = integer.\n\n**Verify:** golden per exit-code path.\n\n```json:metadata\n{\"files\":[\"cmd/stash/errors.go\",\"cmd/stash/errors_test.go\",\"docs/AGENTS.md\"],\"verifyCommand\":\"go test ./cmd/stash -run TestExitCodes -v\",\"acceptanceCriteria\":[\"structured envelope\",\"frozen (name,integer) table\",\"code=name, exit=integer\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 20, "subject": "Task 20: stash catalog - embedded build-time artifact", "status": "pending", "blockedBy": [7, 16],
+      "id": 20, "subject": "Task 20: stash catalog - embedded build-time artifact", "status": "completed", "blockedBy": [7, 16],
       "description": "**Goal:** go:embed schema/catalog.json; stash catalog prints it verbatim (no runtime SDL parsing).\n\n**Verify:** `./stash catalog | jq '.\"$defs\", .commands'` resolves; conformance catalog-coverage green.\n\n```json:metadata\n{\"files\":[\"cmd/stash/catalog.go\",\"cmd/stash/catalog_test.go\"],\"verifyCommand\":\"go build ./cmd/stash && ./stash catalog | jq .\",\"acceptanceCriteria\":[\"embedded artifact printed verbatim\",\"no runtime parsing\"],\"modelTier\":\"mechanical\"}\n```"
     },
     {

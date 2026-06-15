@@ -24,7 +24,10 @@ import (
 // binding). An operation with no input and no required arguments is sent with
 // empty variables. A transport error is mapped into the SDK error model so the
 // CLI reports a stable, agent-readable classification.
-func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars map[string]json.RawMessage, out io.Writer) error {
+//
+// format selects the output rendering (--output); writeOutput redacts API keys
+// and renders the response data. An empty format defaults to json.
+func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars map[string]json.RawMessage, format string, out io.Writer) error {
 	var data json.RawMessage
 	req := requestFor(spec, vars)
 	resp := &graphql.Response{Data: &data}
@@ -32,7 +35,7 @@ func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars m
 	if err := c.GraphQL().MakeRequest(ctx, req, resp); err != nil {
 		return classifyError(err)
 	}
-	return writeJSON(out, data)
+	return writeOutput(out, format, spec, data)
 }
 
 // classifyError maps a raw error from genqlient's MakeRequest into a stable,
