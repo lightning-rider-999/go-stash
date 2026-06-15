@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -38,28 +39,97 @@ func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars m
 	return writeOutput(out, format, spec, data)
 }
 
-// classifyError maps a raw error from genqlient's MakeRequest into a stable,
-// agent-readable line through the SDK error model. The SDK's own classify is
-// unexported and a *stash.TransportError cannot be fully reconstructed from
-// outside the package (its cause field is unexported), so this handles the one
-// shape it can rebuild — an HTTP 200 GraphQL "errors" array surfaces as a
-// gqlerror.List, which becomes a [*stash.GraphQLError] — and passes every other
-// shape (HTTP errors, network failures) to [stash.NewErrorEnvelope] as-is. The
-// original error stays in the chain for callers that inspect it.
+// classifyError maps a raw error from genqlient's MakeRequest into the SDK error
+// model so the exit-code classifier (classifyExit) and the error envelope see a
+// stable, typed shape. The raw c.GraphQL() client does not run the SDK's own
+// classify (that wraps the typed operation wrappers), so this rebuilds the same
+// typing from genqlient's three error shapes using only the SDK's public types:
 //
-// TODO(Task 19): replace the formatted message with the frozen exit-code
-// taxonomy and a JSON error envelope on stderr.
+//   - gqlerror.List (HTTP 200 carrying a GraphQL "errors" array) -> a
+//     [*stash.GraphQLError]; [stash.ErrUnauthorized] is joined when a message
+//     looks like an auth failure, so classifyExit maps it to auth.
+//   - *graphql.HTTPError (a non-2xx status) -> a transport failure. A
+//     [*stash.TransportError] cannot be built from outside the package (its cause
+//     is unexported), so the genqlient error is wrapped in a CLI transportError
+//     carrying the status code; classifyExit recognises both. 401/403 also join
+//     [stash.ErrUnauthorized].
+//   - any other error (network failure, cancelled context, decode error) -> a
+//     CLI transportError with no status.
+//
+// The original error always stays in the chain via %w, so a caller can still
+// errors.As/Is down to the genqlient cause.
 func classifyError(err error) error {
 	if err == nil {
 		return nil
 	}
 
+	// HTTP 200 with a GraphQL errors array.
 	var list gqlerror.List
 	if errors.As(err, &list) {
-		env := stash.NewErrorEnvelope(&stash.GraphQLError{Errors: list})
-		return fmt.Errorf("stash %s: %s", env.Code, env.Message)
+		gqlErr := &stash.GraphQLError{Errors: list}
+		if listLooksUnauthorized(list) {
+			return fmt.Errorf("%w: %w", gqlErr, stash.ErrUnauthorized)
+		}
+		return gqlErr
 	}
 
-	env := stash.NewErrorEnvelope(err)
-	return fmt.Errorf("stash %s: %s", env.Code, env.Message)
+	// Non-2xx HTTP status.
+	var httpErr *graphql.HTTPError
+	if errors.As(err, &httpErr) {
+		te := &transportError{statusCode: httpErr.StatusCode, err: err}
+		if httpErr.StatusCode == 401 || httpErr.StatusCode == 403 || listLooksUnauthorized(httpErr.Response.Errors) {
+			return fmt.Errorf("%w: %w", te, stash.ErrUnauthorized)
+		}
+		return te
+	}
+
+	// Network failure, cancelled context, decode error: no HTTP status.
+	return &transportError{err: err}
+}
+
+// transportError is the CLI's stand-in for a transport failure on the raw
+// MakeRequest path. The SDK's [stash.TransportError] cannot be constructed from
+// outside its package (its cause field is unexported), so this mirrors the
+// public surface — a StatusCode and a wrapped cause — and classifyExit maps it,
+// like [stash.TransportError], to the transport exit code.
+type transportError struct {
+	statusCode int
+	err        error
+}
+
+// Error describes the transport failure, including the status code when known.
+func (e *transportError) Error() string {
+	if e.statusCode != 0 {
+		return fmt.Sprintf("transport error (status %d): %v", e.statusCode, e.err)
+	}
+	return fmt.Sprintf("transport error: %v", e.err)
+}
+
+// Unwrap returns the underlying cause so the genqlient error stays reachable.
+func (e *transportError) Unwrap() error { return e.err }
+
+// listLooksUnauthorized reports whether any GraphQL error in the list signals an
+// authentication or authorisation failure, by its extensions code or message
+// text. It mirrors the SDK's own heuristic, kept here because that function is
+// unexported.
+func listLooksUnauthorized(list gqlerror.List) bool {
+	for _, ge := range list {
+		if ge == nil {
+			continue
+		}
+		if code, ok := ge.Extensions["code"].(string); ok {
+			switch strings.ToUpper(code) {
+			case "UNAUTHENTICATED", "UNAUTHORIZED", "FORBIDDEN":
+				return true
+			}
+		}
+		msg := strings.ToLower(ge.Message)
+		if strings.Contains(msg, "not authenticated") ||
+			strings.Contains(msg, "unauthorized") ||
+			strings.Contains(msg, "unauthenticated") ||
+			strings.Contains(msg, "forbidden") {
+			return true
+		}
+	}
+	return false
 }

@@ -61,6 +61,7 @@ func buildRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	wrapCobraUsageErrors(root)
 
 	root.PersistentFlags().String("url", "", "Stash base URL (default $STASHAPP_URL)")
 	root.PersistentFlags().String("api-key", "", "Stash API key (default $STASHAPP_API_KEY)")
@@ -120,13 +121,14 @@ func newLeafCommand(spec commandSpec) *cobra.Command {
 	if spec.Deprecated {
 		leaf.Deprecated = "deprecated in the Stash schema; prefer the current operation"
 	}
+	addConvenienceFlags(leaf, spec)
 	leaf.RunE = func(cmd *cobra.Command, _ []string) error {
 		if spec.Kind == "subscription" {
 			// TODO(Task 21): wire --wait/streaming for subscriptions.
 			return fmt.Errorf("%s: streaming not yet wired", strings.Join(spec.Path, " "))
 		}
 
-		vars, err := readVariables(cmd)
+		vars, err := resolveVariables(cmd, spec)
 		if err != nil {
 			return err
 		}

@@ -1,0 +1,199 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"testing"
+
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/lightning-rider-999/go-stashapp/stash"
+)
+
+// TestExitCodeTaxonomyFrozen guards the (name, integer) pairs against an
+// accidental renumber. The catalog and agents depend on these exact values.
+func TestExitCodeTaxonomyFrozen(t *testing.T) {
+	want := []ExitCode{
+		{"ok", 0}, {"internal", 1}, {"usage", 2}, {"auth", 3},
+		{"transport", 4}, {"validation", 5}, {"server-fault", 6},
+		{"not-found", 7}, {"destructive-refused", 8}, {"job-failed", 9},
+		{"still-running", 10}, {"unconfirmed", 11},
+	}
+	got := []ExitCode{
+		ExitOK, ExitInternal, ExitUsage, ExitAuth,
+		ExitTransport, ExitValidation, ExitServerFault,
+		ExitNotFound, ExitDestructiveRefused, ExitJobFailed,
+		ExitStillRunning, ExitUnconfirmed,
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("taxonomy[%d] = %+v, want %+v", i, got[i], w)
+		}
+	}
+}
+
+// gqlError builds a *stash.GraphQLError carrying one message.
+func gqlError(msg string) *stash.GraphQLError {
+	return &stash.GraphQLError{Errors: gqlerror.List{{Message: msg}}}
+}
+
+// TestClassifyExit covers every classification path the SDK error model feeds.
+func TestClassifyExit(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want ExitCode
+	}{
+		{"nil is ok", nil, ExitOK},
+		{"usage", newUsageError(fmt.Errorf("unknown flag --bogus")), ExitUsage},
+		{"auth via sentinel", fmt.Errorf("denied: %w", stash.ErrUnauthorized), ExitAuth},
+		{"auth wins over gql shape", fmt.Errorf("%w: %w", gqlError("forbidden"), stash.ErrUnauthorized), ExitAuth},
+		{"sdk transport", &stash.TransportError{StatusCode: 503}, ExitTransport},
+		{"cli transport", &transportError{statusCode: 500}, ExitTransport},
+		{"not found", gqlError("scene not found"), ExitNotFound},
+		{"does not exist", gqlError("performer with id 9 does not exist"), ExitNotFound},
+		{"validation invalid", gqlError("title is invalid"), ExitValidation},
+		{"validation must be", gqlError("rating100 must be between 0 and 100"), ExitValidation},
+		{"generic server fault", gqlError("internal database error"), ExitServerFault},
+		{"unknown is internal", fmt.Errorf("something odd"), ExitInternal},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyExit(tc.err); got != tc.want {
+				t.Errorf("classifyExit = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestErrorEnvelopeShape asserts the JSON envelope on stderr names the taxonomy
+// code, carries the message, and lists the GraphQL error messages.
+func TestErrorEnvelopeShape(t *testing.T) {
+	var buf bytes.Buffer
+	err := gqlError("scene not found")
+	code := classifyExit(err)
+	writeErrorEnvelope(&buf, code, err)
+
+	// One compact line, newline-terminated.
+	line := buf.Bytes()
+	if n := bytes.Count(line, []byte("\n")); n != 1 || line[len(line)-1] != '\n' {
+		t.Errorf("envelope is not a single newline-terminated line: %q", buf.String())
+	}
+
+	var env struct {
+		Code          string   `json:"code"`
+		Message       string   `json:"message"`
+		GraphQLErrors []string `json:"graphqlErrors"`
+		Retryable     bool     `json:"retryable"`
+	}
+	if err := json.Unmarshal(line, &env); err != nil {
+		t.Fatalf("envelope not JSON: %v\n%s", err, buf.String())
+	}
+	if env.Code != "not-found" {
+		t.Errorf("code = %q, want not-found", env.Code)
+	}
+	if env.Message == "" {
+		t.Error("message is empty")
+	}
+	if len(env.GraphQLErrors) != 1 || env.GraphQLErrors[0] != "scene not found" {
+		t.Errorf("graphqlErrors = %v, want [scene not found]", env.GraphQLErrors)
+	}
+}
+
+// TestExitCodes is the per-path golden for the wired error path: each error
+// shape, driven through the live MakeRequest classifier where it has a wire
+// form, must yield the right code/integer AND a JSON envelope naming that code.
+func TestExitCodes(t *testing.T) {
+	cases := []struct {
+		name      string
+		reply     string
+		status    int
+		wantCode  string
+		wantExit  int
+		wantInEnv string
+	}{
+		{
+			name:      "auth",
+			reply:     `{"errors":[{"message":"not authenticated","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+			status:    200,
+			wantCode:  "auth",
+			wantExit:  3,
+			wantInEnv: `"code":"auth"`,
+		},
+		{
+			name:      "transport",
+			reply:     `{"errors":[{"message":"boom"}]}`,
+			status:    500,
+			wantCode:  "transport",
+			wantExit:  4,
+			wantInEnv: `"code":"transport"`,
+		},
+		{
+			name:      "not-found",
+			reply:     `{"errors":[{"message":"scene not found"}]}`,
+			status:    200,
+			wantCode:  "not-found",
+			wantExit:  7,
+			wantInEnv: `"code":"not-found"`,
+		},
+		{
+			name:      "server-fault",
+			reply:     `{"errors":[{"message":"panic: nil pointer"}]}`,
+			status:    200,
+			wantCode:  "server-fault",
+			wantExit:  6,
+			wantInEnv: `"code":"server-fault"`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := newFakeServerStatus(t, tc.status, tc.reply)
+			c := fs.client(t)
+
+			spec := commandSpec{
+				Path:   []string{"scene", "get"},
+				OpName: "FindScene",
+				Query:  stash.FindScene_Operation,
+				Kind:   "query",
+			}
+			var out bytes.Buffer
+			err := runOperation(context.Background(), c, spec, nil, "json", &out)
+			if err == nil {
+				t.Fatal("expected an error from runOperation")
+			}
+
+			code := classifyExit(err)
+			if code.Name != tc.wantCode || code.Code != tc.wantExit {
+				t.Errorf("classifyExit = %+v, want {%s %d}", code, tc.wantCode, tc.wantExit)
+			}
+
+			var env bytes.Buffer
+			writeErrorEnvelope(&env, code, err)
+			if !bytes.Contains(env.Bytes(), []byte(tc.wantInEnv)) {
+				t.Errorf("envelope %q missing %q", env.String(), tc.wantInEnv)
+			}
+		})
+	}
+
+	t.Run("success exits 0", func(t *testing.T) {
+		fs := newFakeServer(t, `{"data":{"findScene":{"id":"1"}}}`)
+		c := fs.client(t)
+		spec := commandSpec{
+			Path:       []string{"scene", "get"},
+			OpName:     "FindScene",
+			Query:      stash.FindScene_Operation,
+			Kind:       "query",
+			ReturnType: "Scene",
+		}
+		var out bytes.Buffer
+		if err := runOperation(context.Background(), c, spec, nil, "json", &out); err != nil {
+			t.Fatalf("runOperation: %v", err)
+		}
+		if got := classifyExit(nil); got != ExitOK {
+			t.Errorf("success code = %+v, want ok/0", got)
+		}
+	})
+}

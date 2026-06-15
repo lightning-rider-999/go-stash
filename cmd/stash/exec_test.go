@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,10 +23,18 @@ type fakeServer struct {
 
 func newFakeServer(t *testing.T, reply string) *fakeServer {
 	t.Helper()
+	return newFakeServerStatus(t, http.StatusOK, reply)
+}
+
+// newFakeServerStatus is newFakeServer with an explicit HTTP status, so a test
+// can drive the non-2xx transport-error path.
+func newFakeServerStatus(t *testing.T, status int, reply string) *fakeServer {
+	t.Helper()
 	fs := &fakeServer{}
 	fs.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fs.lastBody, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
 		_, _ = io.WriteString(w, reply)
 	}))
 	t.Cleanup(fs.srv.Close)
@@ -115,8 +124,18 @@ func TestRunOperationGraphQLError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a GraphQL error, got nil")
 	}
-	if !strings.Contains(err.Error(), "GRAPHQL") || !strings.Contains(err.Error(), "scene not found") {
-		t.Errorf("error = %q, want GRAPHQL classification with the server message", err)
+	// classifyError now preserves the typed SDK error so the exit classifier and
+	// the envelope can inspect it, rather than flattening to a formatted string.
+	var gqlErr *stash.GraphQLError
+	if !errors.As(err, &gqlErr) {
+		t.Fatalf("error = %T (%v), want a *stash.GraphQLError", err, err)
+	}
+	if !strings.Contains(err.Error(), "scene not found") {
+		t.Errorf("error = %q, want the server message preserved", err)
+	}
+	// And it classifies to not-found via the message heuristic.
+	if got := classifyExit(err); got != ExitNotFound {
+		t.Errorf("classifyExit = %v, want %v", got, ExitNotFound)
 	}
 }
 

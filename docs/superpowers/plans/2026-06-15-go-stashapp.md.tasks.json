@@ -72,11 +72,11 @@
       "description": "**Goal:** JSON by default always (no TTY detection); NDJSON for lists/streams; -o table|yaml for humans; no built-in field filtering.\n\n**Verify:** `go test ./cmd/stash -run TestOutput -v`.\n\n```json:metadata\n{\"files\":[\"cmd/stash/output.go\",\"cmd/stash/output_test.go\"],\"verifyCommand\":\"go test ./cmd/stash -run TestOutput -v\",\"acceptanceCriteria\":[\"JSON default\",\"NDJSON streams\",\"-o table/yaml\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 18, "subject": "Task 18: CLI input - JSON-first + raw-JSON partial-update binding", "status": "pending", "blockedBy": [16],
+      "id": 18, "subject": "Task 18: CLI input - JSON-first + raw-JSON partial-update binding", "status": "completed", "blockedBy": [16],
       "description": "**Goal:** stdin/--input JSON; partial-update mutation inputs bound as RAW JSON (json.RawMessage/map) NOT genqlient typed structs - to preserve present/absent/null (stdlib JSON can't otherwise express the third state); convenience flags read/list-only (never inject mutation keys).\n\n**Verify:** `go test ./cmd/stash -run TestPartialUpdate` golden proves present/absent/null all survive.\n\n```json:metadata\n{\"files\":[\"cmd/stash/input.go\",\"cmd/stash/input_test.go\"],\"verifyCommand\":\"go test ./cmd/stash -run TestPartialUpdate -v\",\"acceptanceCriteria\":[\"raw-JSON partial-update binding\",\"three states survive\",\"flags read/list-only\"],\"modelTier\":\"complex\"}\n```"
     },
     {
-      "id": 19, "subject": "Task 19: CLI errors + exit codes (name,integer) table", "status": "pending", "blockedBy": [16, 11],
+      "id": 19, "subject": "Task 19: CLI errors + exit codes (name,integer) table", "status": "completed", "blockedBy": [16, 11],
       "description": "**Goal:** Structured JSON envelope on stderr; frozen (name,integer) taxonomy in AGENTS.md (ok,usage,auth,transport,validation,server-fault,not-found,destructive-refused,job-failed,still-running,unconfirmed); envelope code = name, exit status = integer.\n\n**Verify:** golden per exit-code path.\n\n```json:metadata\n{\"files\":[\"cmd/stash/errors.go\",\"cmd/stash/errors_test.go\",\"docs/AGENTS.md\"],\"verifyCommand\":\"go test ./cmd/stash -run TestExitCodes -v\",\"acceptanceCriteria\":[\"structured envelope\",\"frozen (name,integer) table\",\"code=name, exit=integer\"],\"modelTier\":\"standard\"}\n```"
     },
     {

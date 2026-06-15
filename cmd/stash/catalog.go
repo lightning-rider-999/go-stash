@@ -54,6 +54,39 @@ func newCatalogCommand() *cobra.Command {
 	}
 }
 
+// catalogArg is one declared argument of an operation, as recorded in the
+// embedded catalog: its variable name, GraphQL type, and whether it is required.
+type catalogArg struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Required bool   `json:"required"`
+}
+
+// catalogOperation is the subset of a catalog command entry the CLI reads at
+// runtime — the declared arguments, used to gate convenience flags. The rest of
+// the entry (kind, returnType, exitCodes, ...) is consumed by the catalog
+// command and by the docs, not here.
+type catalogOperation struct {
+	Field string       `json:"field"`
+	Kind  string       `json:"kind"`
+	Args  []catalogArg `json:"args"`
+}
+
+// catalogEntry decodes the embedded catalog and returns the operation entry for
+// opName, or ok=false when the operation is absent. It parses on each call,
+// which is fine for the once-per-invocation convenience-flag wiring; the catalog
+// is small relative to a single network round-trip.
+func catalogEntry(opName string) (catalogOperation, bool) {
+	var cat struct {
+		Commands map[string]catalogOperation `json:"commands"`
+	}
+	if err := json.Unmarshal(catalogJSON, &cat); err != nil {
+		return catalogOperation{}, false
+	}
+	entry, ok := cat.Commands[opName]
+	return entry, ok
+}
+
 // printCatalogEntry pretty-prints the single catalog entry for opName, or
 // errors if no such operation exists in the embedded catalog.
 func printCatalogEntry(cmd *cobra.Command, opName string) error {
