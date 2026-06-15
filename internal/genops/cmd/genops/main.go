@@ -40,6 +40,10 @@ func run(schemaDir, overlayPath string) error {
 	if err != nil {
 		return err
 	}
+	commandsGo, err := genops.EmitCommands(c.Manifest)
+	if err != nil {
+		return err
+	}
 
 	for _, w := range []struct {
 		path    string
@@ -49,6 +53,7 @@ func run(schemaDir, overlayPath string) error {
 		{"operations/generated/operations.graphql", []byte(header + c.Operations)},
 		{"operations/manifest.json", manifestJSON},
 		{"schema/catalog.json", catalogJSON},
+		{"cmd/stash/gen_commands.go", commandsGo},
 	} {
 		if err := writeFile(w.path, w.content); err != nil {
 			return err

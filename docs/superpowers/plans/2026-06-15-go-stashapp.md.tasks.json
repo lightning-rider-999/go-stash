@@ -64,7 +64,7 @@
       "description": "**Goal:** Hand-wired GraphQL-multipart sender for importObjects(input:{file:Upload!}) reusing Client transport/auth; any island selecting interface/union fields includes __typename (A5).\n\n**Verify:** `go test ./stash -run TestImportObjects` (httptest asserts operations/map/file parts); integration with a real small file.\n\n```json:metadata\n{\"files\":[\"stash/importobjects.go\",\"stash/importobjects_test.go\"],\"verifyCommand\":\"go test ./stash -run TestImportObjects\",\"acceptanceCriteria\":[\"multipart operations/map/file\",\"reuses client transport/auth\",\"__typename in any interface/union island\"],\"modelTier\":\"complex\"}\n```"
     },
     {
-      "id": 16, "subject": "Task 16: Generate cobra command tree from manifest", "status": "pending", "blockedBy": [7, 10],
+      "id": 16, "subject": "Task 16: Generate cobra command tree from manifest", "status": "completed", "blockedBy": [7, 10],
       "description": "**Goal:** Emit cmd/stash/gen_commands.go from manifest.json under `stash <resource> <verb>`; subscriptions -> job watch/log tail/scan watch; islands hand-wired.\n\n**Verify:** `task generate && go build ./cmd/stash && ./stash --help`; conformance asserts a command per manifest op.\n\n```json:metadata\n{\"files\":[\"internal/genops/cli.go\",\"cmd/stash/gen_commands.go\"],\"verifyCommand\":\"task generate && go build ./cmd/stash\",\"acceptanceCriteria\":[\"command per manifest op\",\"3 subscription streamers\",\"regenerates with surface\"],\"modelTier\":\"complex\"}\n```"
     },
     {

@@ -2,9 +2,16 @@ module github.com/lightning-rider-999/go-stashapp
 
 go 1.26.4
 
-require github.com/vektah/gqlparser/v2 v2.5.34
+require (
+	github.com/spf13/cobra v1.10.2
+	github.com/vektah/gqlparser/v2 v2.5.34
+)
 
-require github.com/google/uuid v1.6.0 // indirect
+require (
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
+)
 
 require (
 	github.com/Khan/genqlient v0.8.1

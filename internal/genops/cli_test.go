@@ -1,0 +1,184 @@
+package genops
+
+import (
+	"slices"
+	"strings"
+	"testing"
+)
+
+// TestCLICoverage is the load-bearing guarantee: every manifest operation maps
+// to exactly one Command, every Command path is unique, and the spot-checked
+// patterns route where the task pins them.
+func TestCLICoverage(t *testing.T) {
+	man, _, _ := buildArtifacts(t)
+
+	cmds, err := BuildCommands(man)
+	if err != nil {
+		t.Fatalf("BuildCommands: %v", err)
+	}
+
+	t.Run("OneToOne", func(t *testing.T) {
+		if len(cmds) != len(man.Operations) {
+			t.Fatalf("commands = %d, operations = %d", len(cmds), len(man.Operations))
+		}
+		if len(cmds) != 211 {
+			t.Errorf("commands = %d, want 211", len(cmds))
+		}
+		opNames := make(map[string]bool, len(cmds))
+		for _, c := range cmds {
+			if opNames[c.OpName] {
+				t.Errorf("duplicate OpName %q", c.OpName)
+			}
+			opNames[c.OpName] = true
+		}
+		for _, e := range man.Operations {
+			if !opNames[e.Name] {
+				t.Errorf("operation %q has no command", e.Name)
+			}
+		}
+	})
+
+	t.Run("UniquePaths", func(t *testing.T) {
+		seen := make(map[string]string, len(cmds))
+		for _, c := range cmds {
+			key := strings.Join(c.Path, " ")
+			if prev, ok := seen[key]; ok {
+				t.Errorf("path collision %q: %s and %s", key, prev, c.OpName)
+			}
+			seen[key] = c.OpName
+			if len(c.Path) == 0 {
+				t.Errorf("%s has an empty path", c.OpName)
+			}
+			for _, seg := range c.Path {
+				if seg == "" {
+					t.Errorf("%s has an empty path segment: %v", c.OpName, c.Path)
+				}
+				if seg != strings.ToLower(seg) {
+					t.Errorf("%s path segment %q is not lower-case", c.OpName, seg)
+				}
+			}
+		}
+	})
+
+	t.Run("Subscriptions", func(t *testing.T) {
+		want := map[string][]string{
+			"JobsSubscribe":         {"job", "watch"},
+			"LoggingSubscribe":      {"log", "tail"},
+			"ScanCompleteSubscribe": {"scan", "watch"},
+		}
+		byOp := commandsByOp(cmds)
+		for op, path := range want {
+			c, ok := byOp[op]
+			if !ok {
+				t.Fatalf("missing subscription command %q", op)
+			}
+			if c.Kind != "subscription" {
+				t.Errorf("%s kind = %q, want subscription", op, c.Kind)
+			}
+			if !slices.Equal(c.Path, path) {
+				t.Errorf("%s path = %v, want %v", op, c.Path, path)
+			}
+		}
+	})
+
+	t.Run("Patterns", func(t *testing.T) {
+		byOp := commandsByOp(cmds)
+		cases := map[string][]string{
+			"FindScenes":             {"scene", "list"},
+			"FindScene":              {"scene", "get"},
+			"FindGalleries":          {"gallery", "list"},
+			"FindGallery":            {"gallery", "get"},
+			"FindPerformers":         {"performer", "list"},
+			"SceneCreate":            {"scene", "create"},
+			"SceneUpdate":            {"scene", "update"},
+			"SceneDestroy":           {"scene", "destroy"},
+			"SceneMerge":             {"scene", "merge"},
+			"PerformerMerge":         {"performer", "merge"},
+			"TagsMerge":              {"tag", "merge-many"},
+			"SceneMarkerCreate":      {"scene-marker", "create"},
+			"GalleryChapterUpdate":   {"gallery-chapter", "update"},
+			"BulkSceneUpdate":        {"scene", "bulk-update"},
+			"ScenesDestroy":          {"scene", "destroy-many"},
+			"ImagesUpdate":           {"image", "update-many"},
+			"GalleriesUpdate":        {"gallery", "update-many"},
+			"AllScenes":              {"scene", "all"},
+			"AllPerformers":          {"performer", "all"},
+			"MetadataScan":           {"metadata", "scan"},
+			"MetadataCleanGenerated": {"metadata", "clean-generated"},
+			"ConfigureGeneral":       {"config", "general"},
+			"ConfigureDLNA":          {"config", "dlna"},
+			"Configuration":          {"config", "get"},
+			"ScrapeSingleScene":      {"scrape", "single-scene"},
+			"FindSceneByHash":        {"scene", "get-by-hash"},
+			"FindDuplicateScenes":    {"scene", "list-duplicates"},
+		}
+		for op, path := range cases {
+			c, ok := byOp[op]
+			if !ok {
+				t.Errorf("missing command %q", op)
+				continue
+			}
+			if !slices.Equal(c.Path, path) {
+				t.Errorf("%s path = %v, want %v", op, c.Path, path)
+			}
+		}
+	})
+
+	t.Run("FieldsPropagated", func(t *testing.T) {
+		byOp := commandsByOp(cmds)
+		sc := byOp["SceneCreate"]
+		if sc.InputType != "SceneCreateInput" || sc.Kind != "mutation" {
+			t.Errorf("SceneCreate = {InputType:%q Kind:%q}", sc.InputType, sc.Kind)
+		}
+		if !byOp["MetadataScan"].JobReturning {
+			t.Error("MetadataScan should be JobReturning")
+		}
+		if !byOp["QuerySQL"].Destructive {
+			t.Error("QuerySQL should be Destructive")
+		}
+		if !byOp["FindMovie"].Deprecated {
+			t.Error("FindMovie should be Deprecated")
+		}
+	})
+}
+
+// TestCLIEmitDeterministic checks EmitCommands renders gofmt-clean, byte-stable
+// Go source that references the genqlient query consts.
+func TestCLIEmitDeterministic(t *testing.T) {
+	man, _, _ := buildArtifacts(t)
+
+	a, err := EmitCommands(man)
+	if err != nil {
+		t.Fatalf("EmitCommands: %v", err)
+	}
+	b, err := EmitCommands(man)
+	if err != nil {
+		t.Fatalf("EmitCommands (2nd): %v", err)
+	}
+	if string(a) != string(b) {
+		t.Error("EmitCommands output is not deterministic")
+	}
+
+	src := string(a)
+	for _, want := range []string{
+		"// Code generated by genops; DO NOT EDIT.",
+		"package main",
+		`"github.com/lightning-rider-999/go-stashapp/stash"`,
+		"var generatedCommands = []commandSpec{",
+		"Query: stash.FindScenes_Operation",
+		`Path: []string{"scene", "list"}`,
+		"Query: stash.SceneUpdate_Operation",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("emitted source missing %q", want)
+		}
+	}
+}
+
+func commandsByOp(cmds []Command) map[string]Command {
+	out := make(map[string]Command, len(cmds))
+	for _, c := range cmds {
+		out[c.OpName] = c
+	}
+	return out
+}
