@@ -56,11 +56,11 @@
       "description": "**Goal:** errgroup.WithContext (first error cancels) + SetLimit configurable bound; no retries.\n\n**Verify:** `go test -race ./stash -run TestBatch -v` (bound respected; first error cancels; no retry).\n\n```json:metadata\n{\"files\":[\"stash/batch.go\",\"stash/batch_test.go\"],\"verifyCommand\":\"go test -race ./stash -run TestBatch -v\",\"acceptanceCriteria\":[\"bound respected\",\"first error cancels\",\"no retry\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 14, "subject": "Task 14: Subscription transport (gorilla WSConn) - write-serialized, keepalive, reconnect", "status": "pending", "blockedBy": [10],
+      "id": 14, "subject": "Task 14: Subscription transport (gorilla WSConn) - write-serialized, keepalive, reconnect", "status": "completed", "blockedBy": [10],
       "description": "**Goal:** graphql.WSConn adapter over gorilla/websocket: inject ApiKey, SERIALIZE all writes (single-writer goroutine - gorilla forbids concurrent writers), client-side keepalive (Stash sends none on graphql-transport-ws), bounded reconnect-with-resubscribe.\n\n**Acceptance Criteria:**\n- [ ] all 3 subscriptions stream typed events\n- [ ] keepalive + protocol writes serialized (-race clean)\n- [ ] drop surfaces per the --wait contract\n\n**Verify:** `go test -race ./stash -run TestSubscription` (synctest); integration: live jobsSubscribe over idle socket (Task 23).\n\n```json:metadata\n{\"files\":[\"stash/subscriptions.go\",\"stash/subscriptions_test.go\"],\"verifyCommand\":\"go test -race ./stash -run TestSubscription\",\"acceptanceCriteria\":[\"3 subs stream\",\"writes serialized (-race)\",\"keepalive+reconnect\"],\"modelTier\":\"complex\"}\n```"
     },
     {
-      "id": 15, "subject": "Task 15: importObjects multipart island (+ __typename rule)", "status": "pending", "blockedBy": [10],
+      "id": 15, "subject": "Task 15: importObjects multipart island (+ __typename rule)", "status": "completed", "blockedBy": [10],
       "description": "**Goal:** Hand-wired GraphQL-multipart sender for importObjects(input:{file:Upload!}) reusing Client transport/auth; any island selecting interface/union fields includes __typename (A5).\n\n**Verify:** `go test ./stash -run TestImportObjects` (httptest asserts operations/map/file parts); integration with a real small file.\n\n```json:metadata\n{\"files\":[\"stash/importobjects.go\",\"stash/importobjects_test.go\"],\"verifyCommand\":\"go test ./stash -run TestImportObjects\",\"acceptanceCriteria\":[\"multipart operations/map/file\",\"reuses client transport/auth\",\"__typename in any interface/union island\"],\"modelTier\":\"complex\"}\n```"
     },
     {
