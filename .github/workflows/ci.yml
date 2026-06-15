@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [feat/plan]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check (gofmt, build, vet, test -race, lint, tidy, codegen freshness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Reads the `go 1.26.x` directive; GOTOOLCHAIN=auto fetches it if the
+          # runner ships an older toolchain.
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v2.1.6
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+
+      - name: task check
+        run: task check
+
+  vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: task vuln
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest ./...

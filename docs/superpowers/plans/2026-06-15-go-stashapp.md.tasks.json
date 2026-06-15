@@ -96,7 +96,7 @@
       "description": "**Goal:** testing/synctest for subscription lifecycle, --wait, errgroup; hermetic mock-server/golden default tier + opt-in //go:build integration tier (env-gated, skipped when absent) covering 3 subs, idle---wait keepalive/reconnect/reconcile, importObjects.\n\n**Verify:** `go test -race ./...` (hermetic) green; `STASHAPP_URL=... go test -tags integration ./...` green live.\n\n```json:metadata\n{\"files\":[\"stash/*_synctest_test.go\",\"stash/integration_test.go\",\"internal/mockgql/\"],\"verifyCommand\":\"go test -race ./...\",\"acceptanceCriteria\":[\"synctest timing units\",\"hermetic default tier\",\"integration tier env-gated/skip\"],\"modelTier\":\"complex\"}\n```"
     },
     {
-      "id": 24, "subject": "Task 24: task check / vuln / golangci-lint / CI", "status": "pending", "blockedBy": [22],
+      "id": 24, "subject": "Task 24: task check / vuln / golangci-lint / CI", "status": "completed", "blockedBy": [22],
       "description": "**Goal:** Wire all gates; minimal GitHub Actions (task check + task vuln).\n\n**Verify:** `task check && task vuln`.\n\n```json:metadata\n{\"files\":[\".golangci.yml\",\".github/workflows/ci.yml\"],\"verifyCommand\":\"task check && task vuln\",\"acceptanceCriteria\":[\"all gates wired\",\"CI runs check+vuln\"],\"modelTier\":\"standard\"}\n```"
     },
     {

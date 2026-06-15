@@ -23,7 +23,15 @@ tasks:
       - golangci-lint run
       - go mod tidy -diff
       - task: generate
-      - git diff --exit-code
+      # Codegen freshness: regeneration must not change any committed generated
+      # artifact. Scoped to the generated files so unrelated working-tree edits
+      # do not trip the gate.
+      - >-
+        git diff --exit-code --
+        operations/generated operations/manifest.json
+        schema/catalog.json schema/version_gen.go
+        stash/operations_gen.go
+        cmd/stash/gen_commands.go cmd/stash/catalog.json
 
   generate:
     desc: Regenerate the typed GraphQL surface (genops then genqlient, via go:generate directives).
