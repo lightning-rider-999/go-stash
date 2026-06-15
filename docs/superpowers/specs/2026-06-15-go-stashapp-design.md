@@ -1,183 +1,142 @@
 # go-stashapp — Design Specification
 
-**Status:** Approved (brainstorm complete) — pre-planning · **Revision: v4** (three adversarial review rounds; v4 hardens the catalog/`--wait`/partial-update mechanisms)
+**Status:** Approved — pre-planning · **Revision: v5** (three adversarial review rounds + two gating spikes run live against the instance)
 **Date:** 2026-06-15
 **Module path:** `github.com/lightning-rider-999/go-stashapp`
-**Target API:** Stash GraphQL. Schema is pinned to the release the **live instance reports** via the `version{}` handshake; researched against **v0.31.1** (latest at 2026-06-15). The pin is *verified, never assumed*.
+**Target API:** Stash GraphQL. Pinned to the live instance's reported version — **confirmed genuinely v0.31.1** (handshake against `http://192.168.0.46:6970/graphql`, build_time 2026-05-03). The pin is *verified, not assumed*.
 
-> **Revision history.** v1 → review (38 confirmed). v2 folded them in. Verify-round confirmed 36/38 + surfaced rewrite seams → v3 reconciled them (canonical types ↔ depth variants; manifest vs SDL-AST; `--wait`; unified `destructive`). A third round found that v3's terse new clauses papered over mechanism questions → **v4** pins them: catalog is a **build-time embedded artifact**; the `--wait` drop contract is a **three-state machine**; partial-update binds **raw JSON** (not typed structs); WSConn **serializes writes**; the curated `destructive` overlay gets a **drift gate**; every subscription gets a command; ApiKey-only auth recorded.
-> **Goal framing (your words):** "enable all functionality." See §2/§4.
+> **Revision history.** v1→review(38 findings)→v2→verify(36/38 + seams)→v3→verify(seam reconcile)→v4. **v5 backports the §12 gating-spike outcomes** (both spikes run live): the "generate everything" strategy is **PROVEN feasible end-to-end** (real `genqlient` codegen + typed decode of 1,410 live scenes) and the selection policy is **validated and locked** — with six concrete corrections the spikes surfaced (tagged A1–A6 / B1–B6 below). The implementation plan (`docs/superpowers/plans/2026-06-15-go-stashapp.md`) is derived from this revision.
+> **Goal framing (your words):** "enable all functionality."
 
 ---
 
 ## 1. Purpose & goals
 
-Two deliverables, both held to "extremely well crafted":
-
-- **SDK** — a *schema-complete*, faithfully-typed Go client for Stash's GraphQL API; importable by other repos with **idiomatic, stable** types.
-- **CLI** — exposes the SDK *completely*, and is **agent-first**: the primary operator is an LLM agent. A partner skill will be written later (out of scope here), so command structure, output, the `catalog` contract, docs, and the built artifact are designed so an agent drives it cleanly. Humans are the secondary path.
+- **SDK** — a *schema-complete*, faithfully-typed Go client for Stash's GraphQL API; importable with **idiomatic, stable** canonical types.
+- **CLI** — exposes the SDK *completely*, **agent-first** (primary operator an LLM agent; a partner skill comes later, out of scope). Humans secondary.
 
 ## 2. Definition of "schema-complete" (locked)
 
-Complete — i.e. **all of Stash's functionality enabled** (your phrase) — means three things, each with a stated enforcement:
-
-1. **Every root operation is callable** — every Query, Mutation, and Subscription field gets a generated operation. *Enforced* by the conformance test diffing the SDL root-field set against the shipped operation set (§8).
-2. **Every input object, enum, and scalar is bound** — *enforced* by an SDL-enumeration conformance check plus the custom-scalar round-trip tests (§8).
-3. **Every return type is representable** — bounded by policy. The schema is cyclic, so **selection depth is a policy, not "fetch the whole graph"** (§4). Representability is guaranteed at the *type* level and spot-checked for the tricky cases (`BaseFile`/`VisualFile`).
-
-The surface, **computed from the vendored SDL at build time**, is currently **74 queries + 134 mutations + 3 subscriptions = 211 operations** — a figure that **includes deprecated aliases** (the `movie` family etc.); "all functionality" is the *non-deprecated* subset (§3), and the build computes the exact number so the prose can't drift.
+All of Stash's functionality enabled. Three enforced criteria: (1) every root operation callable (conformance diff); (2) every input/enum/scalar bound (SDL-enumeration + scalar round-trips); (3) every return type representable — bounded by the selection policy (§4), since the schema is cyclic. Surface, computed from the SDL: **74 queries + 134 mutations + 3 subscriptions = 211 operations**, *including* the deprecated aliases (§3).
 
 ## 3. Scope
 
-- **In:** the whole schema — read, write, operational/admin, and subscriptions.
-- **Deprecated/superseded operations** (e.g. the `movie` family — `findMovie(s)`, `allMovies`, `movieCreate/Update/Destroy`, `scrapeSingleMovie`, etc. — replaced by `group`) are still generated for literal completeness and drift-safety, but flagged deprecated in the catalog (§6) so an agent uses the live equivalent. They ride along for free and are counted in the 211.
-- **Auth:** **ApiKey header only.** Stash also supports username/password *session* auth; that is **deliberately out of scope** (this is the user's own instance with an issued key). Recorded decision, not a silent omission.
-- **Out:** writing the partner agent skill (a separate future effort; this repo produces the artifact and docs it will build on).
+- **In:** the whole schema — read, write, operational/admin, subscriptions.
+- **Deprecated/superseded operations** (the `movie` family — `findMovie(s)`, `allMovies`, `movieCreate/Update/Destroy`, `scrapeSingleMovie/MovieURL` — superseded by `group`) are generated for literal completeness + drift-safety, flagged deprecated in the catalog. "All functionality" is the *non-deprecated* set; the aliases ride along in the 211.
+- **Auth: ApiKey header only.** Username/password session auth is deliberately out of scope (own instance, issued key).
+- **Out:** writing the partner agent skill.
 
-## 4. Core architecture decision — codegen strategy
+## 4. Core architecture — codegen strategy
 
-**Goal: enable all functionality.** Every Stash capability must be reachable through the SDK and CLI (§2) — that is the end. **Generation is the *means*, not the end**: the preferred default because it reaches the whole surface cheaply and turns schema drift into a red build, but subordinate to the functional goal. A generator (`genops`) emits operations for the entire root surface under a defined selection policy ("generate everything"); we **curate by evidence** where the default is wrong; and where generation proves impractical (the §12 spike), **falling back to hand-authored operations is on-intent** — what matters is that all functionality is enabled, not that every operation was machine-produced.
+**Goal: enable all functionality.** Generation is the *means*: `genops` emits operations for the entire surface from the vendored SDL; we curate by evidence; and a hand-authored fallback for parts of the surface is on-intent if generation proves impractical. `internal/genops` (an SDL-AST→operation compiler over `gqlparser/v2`) is the project core. **Spike A proved this works end-to-end** (genqlient v0.8.1, deterministic output, live typed decode).
 
-**`internal/genops` is the project's true core.** genqlient is strictly operation-driven (no whole-API mode), so `genops` is an SDL-AST→operation *compiler*. Its obligations (§5).
-
-### Default selection policy (the linchpin — validated by spike §12)
-Candidate policy, confirmed by the validation spike before locking at scale:
+### Default selection policy (validated live — Spike B)
 - **Scalars/enums:** select all on the target type.
-- **Named related objects:** emit as a **ref** — `{id, name/title}` — via the entity's ref fragment.
-- **Cyclic/self-referential edges** (Tag, Studio, Group via `GroupDescription`, Folder, Scene↔studio/performer/tag/group): **ref-only by default**, with explicit **depth-parameterized variant operations** for deeper reach.
-- **Cycle termination:** **path-based** — on revisiting a type already on the current selection path, emit only its ref set. Breaks *mutual* cycles (Scene→Studio→Scene), not just self-edges. A global max-depth backstops it.
-- **Interfaces/unions** (`BaseFile`/`VisualFile`): expand all implementations' scalars via inline fragments + `__typename`.
+- **Named related objects → REF fragments.** A ref is **`{id, name/title}` — `name`/`title` is MANDATORY, never id-only [B1]** (an id-only "ref" is useless: 461 B/row, forces a follow-up just to get a title).
+- **Cyclic/self-referential edges** (Tag, Studio, Group via `GroupDescription`, Folder, Scene↔studio/performer/tag/group): **ref-only by default [B2]**, with explicit depth-parameterized variant operations for deeper reach. *Justification (measured): expanding `tags` one level alone = 134 KB across 25 scenes (~27× the ref cost) and triples per-row size — this is the policy's whole reason to exist.*
+- **Cycle termination: path-based** — a type revisited on the current selection path collapses to its `Ref`; breaks mutual cycles (Scene→Studio→Scene), global max-depth backstop.
+- **Default `per_page = 25` [B3]** (matches the SDL default; deep scenes ≈ 3 KB/row / 75 KB per page, shallow < 1 KB). `per_page` is a strict linear multiplier (pp250 deep ≈ 344 KB) — large `per_page`, not depth, is the common payload blow-up; keep the `per_page:-1` footgun warning (§6).
 - **`Map`/`custom_fields`:** raw JSON.
 
-> **Two recursion axes (don't conflate).** The policy above governs *output* selection depth. *Input* recursion (a `*FilterType`'s `AND`/`OR`/`NOT` self-refs, `HierarchicalMultiCriterionInput.depth`) is **variable-side data** carried verbatim by genqlient's recursive input structs through `encoding/json`; no depth policy applies (round-trip tested, §8).
+> **Two recursion axes:** output selection depth is a hand-bounded *policy*; input recursion (`*FilterType` `AND`/`OR`/`NOT`, `HierarchicalMultiCriterionInput.depth`) is verbatim variable-side data through genqlient's recursive input structs (round-trip tested, §8).
 
-### Canonical types (public-API decision — locked)
-Object types bind to **one canonical, shared Go struct per entity** via **mandated named fragments** (`fragment SceneFields on Scene`, `fragment SceneRef on Scene`) that `genops` emits and every operation spreads; `@genqlient(typename:)` gives clean names (`stash.Scene`, `stash.SceneRef`).
-- Every operation returning a Scene *at a given depth tier* hands back the **same** `stash.Scene`.
-- **Public type names are NOT a function of selection depth** — names come from the enumerated fragment set, not genqlient's path concatenation; tuning the policy never renames a public type.
-- **Fragment-only discipline:** at every entity occurrence `genops` spreads **exactly one named fragment** — never an ad-hoc inline subset. Path-based termination is "which fragment to spread" (`SceneFields` first-seen, `SceneRef` on revisit/backstop). **Depth variants are themselves named, fragment-backed types** (`stash.SceneDeep`); each tier is its own stable type. The only Go types an entity yields are its enumerated fragments; no occurrence mints a path-named anonymous struct (asserted §8).
-- **The enumerated depth-tier set is part of the public surface** (§9 SemVer): adding a tier is *minor*; removing/renaming one is *major*. §8 asserts the declared tier set is present.
+### Canonical types (public-API decision — locked, with the flatten mechanism)
+One canonical shared Go struct per entity via **mandated named fragments** (`fragment SceneFields on Scene`, `fragment SceneRef on Scene`) + `@genqlient(typename:)` for clean names (`stash.Scene`, `stash.SceneRef`). Public type names are NOT a function of selection depth; depth variants are their own named fragment-backed types (`stash.SceneDeep`).
 
-### Other locked elements
-- **One forced island:** `importObjects` (multipart `Upload`) is hand-wired; conformance asserts the SDL has **exactly one** `Upload` field.
-- **Safety drift is a red build:** the curated `destructive` overlay (§5) is backstopped by a mutation-set drift gate (§8) — a new Stash mutation can't ship ungated.
-- **Completeness is enforced, not asserted** — §2 / §8.
+- **[A1] `flatten` is the load-bearing mechanism.** genqlient reuses a fragment's Go type for a field ONLY if that field's selection is a single fragment-spread carrying `# @genqlient(flatten: true)`. `genops` MUST emit `flatten` on every nested ref/object field, on the line *above the field* — **never above the operation** (it binds to the first variable-definition and errors). Without it, genqlient mints path-named structs for every nested spread and the canonical-type model silently fails. *(Spike A: confirmed — `SceneFields.Studio *StudioRef`, `.Tags []TagRef`, `.Files []VideoFileFields` only materialize with flatten; generated.go dropped 5135→3583 lines with it.)*
+- **[A3] Path-named exceptions (the "no path-named struct" invariant is relaxed to an allowlist).** Two cases unavoidably keep a path-named type, recorded in an explicit allowlist: **(a) mixed-selection wrappers** — `SceneGroup {scene_index, group{...}}`, `SceneMovie`, `*FilterType` internals — where the selection isn't a single fragment-spread (the inner object still flattens to a `Ref`); **(b) union-typed fields** (`Image.visual_files`) get a path-named interface. The §8 stability test fails on any path-named type *not* in the allowlist.
+- **Fragment-only discipline:** every entity occurrence spreads exactly one named fragment; path-based termination chooses *which* (`SceneFields` vs `SceneRef`).
 
 ## 5. SDK architecture & wiring
 
 ### Layout (module `github.com/lightning-rider-999/go-stashapp`)
-- **`stash/`** (root) — public surface: `Client`, options, typed errors, subscription helpers, the `importObjects` island, the generated operations + **canonical fragment-backed types**. The hand-written `Client`/options/errors/subscription layer is the **stable** contract; generated operations track upstream.
-- **`schema/`** — vendored SDL + version stamp + generated `version` constant + the generated, **`go:embed`-ed `catalog.json`** (the build-time machine contract, §6).
-- **`internal/genops/`** — the generator (`tool` directive; never a `tools.go`).
-- **`operations/generated/`** — generated `.graphql`; **`operations/overrides/`** — hand-authored overrides; **`operations/overlay.yaml`** — the committed, reviewable curated overlay keyed by operation → `{destructive, job-returning}` (read-only to genops, stable across regeneration — the one curated input, so it's auditable in VCS).
-- **`cmd/stash/`** — the CLI binary. **`internal/conformance/`** — completeness + drift tests.
+- **`stash/`** — public surface: `Client`, options, typed errors, subscription helpers, the `importObjects` island, genqlient-generated canonical types. The hand-written `Client`/options/errors/subscription layer is the stable contract.
+- **`schema/`** — vendored SDL + `version.txt` + generated version constant + the generated, `go:embed`-ed **`catalog.json`** (the build-time machine contract, §6).
+- **`internal/genops/`** — the generator (`tool` directive; never `tools.go`).
+- **`operations/generated/`**, **`operations/overrides/`**, **`operations/overlay.yaml`** (curated `{destructive, job-returning}`, the one auditable curated input).
+- **`cmd/stash/`** — CLI. **`internal/conformance/`** — gates.
 
-### `internal/genops` obligations
-One `gqlparser/v2` SDL-AST pass (genqlient and `gqlparser` are **build-only**; nothing re-parses SDL at runtime), emitting **deterministically** (sorted iteration; no timestamps/host info):
-1. A complete, named, genqlient-valid operation per root field: collision-free name; a **variable declaration per argument** typed verbatim from the SDL (preserving `!`/nested inputs); variables forwarded; the selection policy via **fragment-only spreads** (§4); inline fragments + `__typename` for interfaces/unions; required `@genqlient` directives.
-2. A **manifest** (`operations/manifest.json`) — the thin per-operation **index**: root-field name, operation name, kind (query/mutation/**subscription**), input-type *name*, plus the `destructive`/`job-returning` flags read from `operations/overlay.yaml`. It indexes **every shipped operation including overrides and hand-islands**. AND the **`schema/catalog.json`** artifact (§6) — the *resolved* model: transitively-resolved `$defs` input dictionary, enum value sets, deprecation reasons, per-command derived exit-code sets. Both are products of the *same* SDL pass (so "one source of truth" = one pass, not one file), serialized at build time; `stash catalog` later just prints the embedded artifact (no runtime parsing).
-3. **Override resolution:** `genops` **parses** each file in `operations/overrides/` (same gqlparser AST) to extract its root field, validating **exactly one root field per override** (a malformed or multi-/zero-root override is a build error); it then emits a generated operation only for fields no override covers (genqlient never sees a duplicate name), and still emits manifest/catalog entries for overrides and islands. A field covered by both a generated op and an override is a build error caught by conformance.
+### `internal/genops` obligations (one `gqlparser/v2` SDL-AST pass; genqlient + gqlparser are build-only; nothing re-parses SDL at runtime; deterministic output)
+1. A complete named operation per root field: collision-free name; a variable per argument typed verbatim from the SDL — **[A6] prefer the `ids:[ID!]` form over the `@deprecated` `scene_ids/image_ids/performer_ids:[Int!]`**; variables forwarded; selection via fragment-only spreads with **`flatten` on every nested field [A1]**; **`__typename` on every interface/union selection [A5]**.
+2. The **manifest** (`operations/manifest.json`, thin per-op index incl. overrides/islands, reading `overlay.yaml`) AND the resolved **`schema/catalog.json`** — both from the same pass.
+3. Override resolution: parse each override (same AST) to extract its single root field (build error if zero/multiple), emit a generated op only for uncovered fields, still index overrides/islands.
+- **[B5] Object edges are enumerated strictly from the SDL AST, never a hand-list.** *(Spike B: `Performer` has no `studios` edge — a hand-list assuming one emits an invalid field. Its real edges are `tags/scenes/groups/stash_ids`.)*
+- **[A4] The `BaseFile` interface / `VisualFile` union are NOT reachable from Scene.** `Scene.files: [VideoFile!]!` and `Gallery.files: [GalleryFile!]!` are concrete — Scene needs only a concrete `VideoFile` fragment. The interface lives at `findFile(s)` (`BaseFile!`) and `Folder.zip_file` (`BasicFile`, concrete); the union only at `Image.visual_files`. The interface/union machinery is proven and tested on `findFiles`/`findImages`, not Scene.
+- **[A5] Islands need `__typename`.** Interface/union fields decode via a generated custom `UnmarshalJSON` keyed on `__typename`; any hand-authored override/island selecting such a field MUST include `__typename` or decode panics.
 
 ### Wiring
-- **Transport:** `net/http`, configurable `*http.Client`; `ApiKey` via a `RoundTripper`. genqlient consumes the `Do(*http.Request)` shape (purely outbound; no server framework). Two genqlient clients: HTTP for query/mutation, websocket for the 3 subscriptions (the WS client rejects query/mutation by design).
-- **URL normalization:** base UI URL → append `/graphql`; derive `ws(s)://…/graphql`.
-- **Timeouts:** default bounded `http.Client.Timeout` (documented) on the GraphQL path only — **not** the websocket or `--wait` paths (ctx-cancel only).
+- **Transport:** `net/http`, configurable `*http.Client`; `ApiKey` via `RoundTripper`; genqlient consumes the `Do(*http.Request)` shape (outbound only). HTTP client for query/mutation; a separate websocket client for the 3 subscriptions.
+- **URL normalize:** base UI URL → `/graphql`; derive `ws(s)://…/graphql`.
+- **Timeouts:** default bounded `http.Client.Timeout` on the GraphQL path only — not websocket/`--wait` (ctx-cancel only).
 - **Options/config:** functional options + env fallback (`STASHAPP_URL`, `STASHAPP_API_KEY`). Nothing hardcoded (§11).
-- **Errors:** typed — transport vs GraphQL-level (`*GraphQLError`) vs auth; `%w` chains; `errors.As`-friendly.
-- **Concurrency:** bounded fan-out via `errgroup.WithContext` (first error cancels siblings, per §11) + `SetLimit` for the configurable bound; **no hidden retries**.
-- **Subscriptions:** genqlient's `NewClientUsingWebSocket` owns the protocol + `Start`/`Subscribe`/`Unsubscribe`/`Close` lifecycle. The hand-written piece is a thin `graphql.Dialer`/`WSConn` adapter over `gorilla/websocket` that dials `ws(s)://…/graphql`, injects `ApiKey`, and **owns client-side keepalive** (Stash sends none on `graphql-transport-ws`, §12) and a **bounded reconnect-with-resubscribe**. **Concurrency discipline:** the adapter **serializes all writes** to the underlying conn (a single-writer goroutine / write mutex) — `gorilla/websocket` forbids concurrent writers, and the keepalive ping coexists with protocol frames; this makes the §8 `-race` gate meaningful for the WS path.
-- **Diagnostics:** `log/slog`, optional injected logger; the `ApiKey` is never logged (§11).
-- **Version handshake:** `Client.Version(ctx)` via `query { version { version hash build_time } }`; on mismatch the SDK warns and the CLI surfaces a distinct exit code / error-envelope field.
+- **Errors:** typed — transport vs `*GraphQLError` (carries the error list) vs auth; `%w` chains; `errors.As`-friendly.
+- **Concurrency:** `errgroup.WithContext` (first error cancels) + `SetLimit`; no hidden retries.
+- **Subscriptions:** genqlient's `NewClientUsingWebSocket` owns the protocol/lifecycle; the hand-written piece is a thin `graphql.Dialer`/`WSConn` adapter over `gorilla/websocket` that dials, injects `ApiKey`, **serializes all writes** (single-writer goroutine — gorilla forbids concurrent writers; keepalive coexists with protocol frames), owns client-side keepalive (Stash sends none on `graphql-transport-ws`, §12), and a bounded surfaced reconnect.
+- **Diagnostics:** `log/slog`, optional logger; ApiKey never logged (§11).
+- **Version handshake:** `Client.Version(ctx)`; mismatch → SDK warns, CLI surfaces a distinct exit code / envelope field.
 
 ## 6. CLI — agent-first
 
-Generated from the `manifest.json` (one source of truth → SDK ops *and* CLI commands); hand-islands get hand-written commands (still indexed). Framework: **`spf13/cobra`**.
+Generated from `manifest.json`; framework `spf13/cobra`. Grammar `stash <resource> <verb>`. Every subscription → a streaming command: `stash job watch`, `stash log tail`, `stash scan watch`.
 
-- **Command grammar:** `stash <resource> <verb> [flags]`; operational groups `stash job …`, `stash config …`, `stash scan/generate …`.
-- **Subscriptions → commands:** *every* subscription root field surfaces as a streaming command (manifest carries the `subscription` kind; conformance covers all three): `stash job watch` (`jobsSubscribe`), `stash log tail` (`loggingSubscribe`), `stash scan watch` (`scanCompleteSubscribe`).
-- **Output:** **JSON by default, always** (no TTY detection). Lists/streams → NDJSON. Humans use `-o table|yaml`. No built-in field filtering (pipe to `jq`).
-- **Input:** **JSON-first** via stdin or `--input @file.json`; convenience flags (`--q`, `--page`, `--per-page`, `--sort`, `--direction`, `--id`) are **read/list ergonomics only** — they do **not** inject keys into mutation payloads. For partial-update mutations the **input JSON body is the authoritative key set**.
-- **Partial-update contract & mechanism:** the CLI sends exactly the keys present in the input JSON, omits absent ones (no zero-value injection), and passes explicit `null` through as "clear" — three distinct wire states. **Mechanism:** because stdlib `encoding/json` cannot distinguish "omit" from "explicit null" on genqlient's pointer-typed input structs, partial-update mutation inputs are **not** round-tripped through the typed structs — the operation's input variable is bound as the **raw JSON** the agent supplied (`json.RawMessage`/`map[string]any`), preserving present/absent/null verbatim. A §8 golden test proves all three states survive marshalling.
-- **`per_page: -1` / `depth: -1`:** passed through verbatim; footgun documented in `AGENTS.md`; optional stderr warning is a §12 decision.
+- **Output:** JSON by default always; lists/streams → NDJSON; `-o table|yaml` for humans; no field filtering (pipe to `jq`). NDJSON completeness = stdout EOF + zero exit (errors to stderr only); `job watch` adds a terminal marker.
+- **Input:** JSON-first (stdin/`--input`). Convenience flags (`--q/--page/--per-page/--sort/--direction/--id`) are **read/list ergonomics only — they never inject keys into a mutation payload.**
+- **Partial-update contract & mechanism:** send exactly the keys present in the input JSON; omit absent; pass explicit `null` as "clear" — three distinct wire states. **Mechanism:** stdlib `encoding/json` can't distinguish "omit" from "explicit null" on genqlient's pointer-typed input structs, so partial-update mutation inputs are bound as **raw JSON** (`json.RawMessage`/`map[string]any`), not the typed structs. Golden-tested (§8).
+- **[B4] ApiKey redaction.** The default scene tier selects `paths`, and `paths.stream` embeds the full ApiKey JWT (`?apikey=eyJ…`). `paths` stays in the default tier, but the CLI output layer **redacts the `apikey` query param** from any URL. A §8 golden test asserts no ApiKey JWT appears in default-policy output. *(Spike B: the single most important finding — directly intersects §11.)*
+- **`per_page:-1`/`depth:-1`:** passed verbatim; footgun documented in `AGENTS.md`.
 
-### `stash catalog` — the machine-facing contract (build-time artifact)
-A **static `schema/catalog.json`** emitted by the `genops` SDL pass at build time and `go:embed`-ed; `stash catalog` prints it **verbatim** (no runtime SDL parsing). Conformance (§8) diffs it against the SDL. Contents:
-- **Top-level — three version axes, stated explicitly:** `catalog_format_version`; the **vendored/targeted Stash SDL version** (what the binary was built against); (the **live-instance** version is *not* in the catalog — it comes from the §5 handshake and is the agent's session-start drift check). Catalog drift detection is catalog-vs-binary only.
-- **Per command:** resource, verb, summary; `destructive` flag; `job-returning` flag; and the **set of exit codes it can return**, *derived* from the manifest flags — a base set (`ok`, `usage`, `auth`, `transport`, `validation`, `server-fault`) + `not-found` for lookups + `destructive-refused` iff `destructive` + `job-failed`/`still-running`/`unconfirmed` iff `job-returning`. Exit codes are emitted as the kebab **name** (matching the envelope `code`).
-- **Inputs:** the **fully, transitively resolved** input type via a `$defs` dictionary (nested inputs, `*FilterType` criterion shapes with `{value, modifier, depth, excludes}`, `AND`/`OR`/`NOT` self-refs). Per field: name, type, required/optional, list-ness, default, **deprecation flag + verbatim `@deprecated` reason**, SDL description.
-- **Enums:** every reachable enum with its complete value set as **API symbols** (e.g. `INCLUDES_ALL`), the operator-string description in a **separate** field.
+### `stash catalog` — build-time embedded artifact
+A static `schema/catalog.json` emitted by the `genops` SDL pass and `go:embed`-ed; `stash catalog` prints it verbatim (no runtime parsing). Contents: `catalog_format_version` + the targeted Stash SDL version (live-instance drift is the §5 handshake's job); per command — resource/verb/summary, `destructive` flag, `job-returning` flag, and the derived set of exit codes (base + `not-found` for lookups + `destructive-refused` iff destructive + `job-failed`/`still-running`/`unconfirmed` iff job-returning), emitted as the kebab name; inputs fully transitively resolved via a `$defs` dictionary (nested inputs, `*FilterType` criterion shapes, `AND/OR/NOT`); every reachable enum's value set as **API symbols** (description in a separate field); `@deprecated` reason per field (incl. the `[Int!]` id variants, [A6]).
 
 ### Errors & exit codes
-- **Error envelope** (on stderr): `{ "error": { "code", "message", "graphql_errors":[{message,path,extensions}], "field", "retryable" } }`. `retryable` is advisory only (never triggers client retries, §11). `field` is best-effort (verify Stash exposes it — §12).
-- **Taxonomy as a single frozen table of `(name, integer)` pairs** in `AGENTS.md` (never renumbered): the envelope `code` is exactly the **name** half; the process exit status is exactly the **integer** half of the same row; the catalog's per-command set uses the name. Names: `ok`, `usage`, `auth`, `transport`, **`validation`** (input rejected — fix-the-input) vs **`server-fault`** (server execution — retry/give-up), `not-found`, **`destructive-refused`**, **`job-failed`** (job ran and failed), **`still-running`** (`--wait-timeout` fired), **`unconfirmed`** (a `--wait` drop where terminal status couldn't be confirmed — re-attach via the printed job ID).
-- **NDJSON completeness:** errors go to stderr only (never interleaved). Stream completeness is **stdout EOF + a zero exit** — stdout alone is not a completeness signal (documented in `AGENTS.md`); `stash job watch` additionally emits a terminal marker.
+Envelope on stderr `{ error: { code, message, graphql_errors[], field, retryable } }` (`retryable` advisory only; `field` best-effort, §12). Taxonomy = a single frozen `(name, integer)` table in `AGENTS.md`; envelope `code` = the name, exit status = the integer. Names: `ok, usage, auth, transport, validation, server-fault, not-found, destructive-refused, job-failed, still-running, unconfirmed`.
 
-### Async / jobs (`--wait` contract)
-Job-launchers return the job ID immediately and accept **`--wait`**, which seeds state with a `findJob` poll on attach (closing the launch→subscribe race), then tracks via `jobsSubscribe`:
-- **Terminal success →** exit `ok`. **Terminal failure →** `job-failed` + the job's error in the envelope.
-- **`--wait-timeout`:** defaults **unset = no client-side bound** (a bare `--wait` blocks until terminal or ctx cancel — long scans run for hours). When set, on timeout the job continues server-side and the CLI exits `still-running` with the job ID.
-- **Involuntary socket drop — three-state reconcile** (not "any non-terminal = failure"):
-  1. bounded reconnect-with-resubscribe (§5) first;
-  2. if exhausted, poll `findJob`: **terminal** → exit accordingly; **confirmed still-running (non-terminal)** → **resume waiting** (re-subscribe / bounded poll-with-backoff) — do **not** exit (this is the healthy long-job case);
-  3. **indeterminate** — server unreachable, or job *absent* from `findJob`/`jobQueue` (terminal jobs age out — §12 verifies the retention window) — exit `unconfirmed`, print the job ID, do **not** report `job-failed` (avoids telling an agent a succeeded job failed, which could trigger a duplicating re-run).
-- **Destructive-op gating:** `querySQL`, `execSQL`, `metadataImport`, `anonymiseDatabase`, `migrate` (the exact root-field names — same verbatim list in §10) behind a `--yes-i-understand`-style flag; flagged `destructive` in the catalog; refusal → `destructive-refused`.
-- **Config:** env + flags (`--url`, `--api-key`); config file is YAGNI. **Artifact:** one static binary, `cmd/stash` (name TBC).
+### Async / jobs (`--wait`)
+Seeds with a `findJob` poll on attach (closes the launch→subscribe race), then tracks `jobsSubscribe`. Terminal success → `ok`; terminal failure → `job-failed`. `--wait-timeout` default **unset = no client bound** (long scans run for hours). **Drop reconcile (three-state):** bounded reconnect → `findJob` poll → **terminal**=exit accordingly / **confirmed still-running**=resume waiting (don't exit) / **indeterminate** (server unreachable or job aged out of the queue)=exit `unconfirmed` + print job id (never `job-failed`, so an agent won't re-run a succeeded op). Destructive gating: `querySQL`, `execSQL`, `metadataImport`, `anonymiseDatabase`, `migrate` (exact root-field names — same verbatim list, §10) behind `--yes-i-understand` → `destructive-refused`. Config env+flags; config file YAGNI. One static binary `cmd/stash`.
 
 ## 7. Documentation & DX
-
-- godoc on every package + exported symbol, with runnable `Example` functions.
-- A **generated command reference** (`docs/cli/`) from cobra.
-- **`docs/AGENTS.md`**: the `(name, integer)` exit-code table (stable contract); the error-envelope shape; the **three version axes** and that live-instance drift is checked once at session start via the handshake; the **"send the enum *symbol*, not the operator-string"** rule (CriterionModifier example); a worked **multi-criterion filter** example; the `--wait` contract (incl. the `unconfirmed` re-attach path); the **partial-update contract** (present/absent/`null`; convenience flags don't inject mutation keys) with a worked update example; the `per_page:-1`/`depth:-1` footgun; NDJSON completeness = EOF + exit code; **idempotency guidance** (no client retries; re-running a `create` may duplicate, an `update` is safe to repeat). `--dry-run` is **YAGNI** (recorded).
-- README with quickstart.
+godoc on every exported symbol + runnable `Example`s; generated `docs/cli/`; **`docs/AGENTS.md`** (the `(name,integer)` exit-code table, error envelope, the "send the enum *symbol* not the operator-string description" rule, a worked multi-criterion filter, the `--wait` contract incl. `unconfirmed` re-attach, the partial-update contract, the `per_page:-1` footgun, idempotency guidance — re-running a `create` may duplicate, `update` is safe); README quickstart. `--dry-run` YAGNI.
 
 ## 8. Testing & gates
-
-- **Conformance:** root-field coverage; SDL input/enum enumeration; custom-scalar round-trips (**`PluginConfigMap` and `Timestamp` called out explicitly** — see §10); recursive filter-input round-trip; **partial-update three-state golden** (present/absent/`null` survive raw-JSON binding); interface/union coverage; **canonical-type stability** (same `stash.Scene` across operations of a tier; the declared depth-tier set is present; no path-named struct outside the fragment set); **catalog coverage** (the embedded artifact covers every command incl. overrides/islands; every referenced enum/input resolves; enum value sets match the SDL); **exactly-one-`Upload`**; **mutation-set drift gate** (the set of mutations is diffed against a committed baseline → red build forces triage of any new/changed mutation into or out of `operations/overlay.yaml`, so a new destructive op can't ship ungated).
-- **`genops` unit tests** over synthetic SDL fixtures (cyclic type, interface, union, `depth:Int` field, deprecated field) asserting fragment-only, depth-bounded selection; **determinism test** (`task generate` twice → byte-identical).
-- **Agent-contract tests:** error-envelope golden; exit-code golden per path; **`ApiKey` redaction**.
-- **`testing/synctest`** for timing/concurrency units (subscription lifecycle, `--wait`, errgroup); the live tier exercises the WS write-serialization under `-race`.
-- **Two tiers:** hermetic (mock/golden; CI-safe default) + opt-in `//go:build integration` (env-gated, skipped when absent) covering the 3 subscriptions, the long-idle `--wait` keepalive/reconnect/reconcile path, and the `importObjects` island.
+- **Conformance:** root-field coverage; SDL input/enum enumeration; scalar round-trips (**`PluginConfigMap` + `Timestamp` called out**); interface/union coverage on **`findFiles`/`findImages`, not Scene [A4]**; recursive filter-input round-trip; partial-update three-state golden; **canonical-type stability with the [A3] exception allowlist**; catalog coverage; exactly-one-`Upload`; **mutation-set drift gate** (new mutation → red build forces triage into `overlay.yaml`); **ApiKey redaction incl. `paths.stream` [B4]**; determinism (regen twice byte-identical — *Spike A confirmed achievable*).
+- **`genops` unit tests** over synthetic SDL fixtures (cyclic type, interface, union, `depth:Int` field, deprecated field) asserting fragment-only, depth-bounded, **flatten-correct** selection; determinism test.
+- **Agent-contract tests:** error-envelope golden; exit-code golden; ApiKey redaction.
+- **`testing/synctest`** for subscription lifecycle / `--wait` / errgroup; two tiers — hermetic (mock/golden, CI-safe) + opt-in `//go:build integration` (env-gated, skipped when absent) covering the 3 subs, the idle-`--wait` keepalive/reconnect/reconcile path, and `importObjects`.
 - **`task check`** = gofmt · build · vet · `test -race` · golangci-lint · tidy · codegen-freshness. **`task vuln`** = govulncheck.
 
 ## 9. Repo & tooling
-
-- **Module:** `github.com/lightning-rider-999/go-stashapp`; layout per §5.
-- **Scaffold precondition:** confirm the `github-alt` remote and resolved commit identity **before the first commit** (per the CLAUDE.md source-control contract) so the identity gate is checked at scaffold, not discovered at push time.
-- **Go:** latest stable, `GOTOOLCHAIN=auto`; exact version pinned at scaffold time (verified).
+- **Module** `github.com/lightning-rider-999/go-stashapp`; layout §5. **Scaffold precondition:** confirm the `github-alt` remote + resolved commit identity before the first commit.
+- **Go:** latest stable (`GOTOOLCHAIN=auto`; instance machine on **1.26.4**). **[A2] Toolchain blocker (mandatory):** genqlient v0.8.1 transitively pins `golang.org/x/tools@v0.24.0`, which **does not compile under Go 1.26** (`tokeninternal.go: invalid array length`). Force `golang.org/x/tools ≥ v0.46.0` (explicit `require`/`replace`). `go get -tool` re-pins it to the broken version → re-bump after, in the scaffold and the Taskfile `generate`. Pins observed: genqlient v0.8.1, `gqlparser/v2` v2.5.x (build-only, may pin newer than genqlient's transitive v2.5.19), `google/uuid` (genqlient ws runtime).
 - **`Taskfile.yml`:** `check`, `generate`, `build`, `schema`, `vuln`.
-- **Versioning / stability:** SemVer. The hand-written `Client`/options/errors/subscription layer is the stable contract; generated operations + **the enumerated depth-tier type set** track upstream — a regeneration that renames/removes a generated type, or removes a depth tier, moves the **major**; adding a tier is minor. The supported Stash version range is in package docs + a programmatic constant; a runtime handshake mismatch is surfaced (§5).
-- **CI:** minimal GitHub Actions (`task check` + `task vuln`); trimmable. **License:** MIT (default).
+- **Versioning:** SemVer; the hand-written layer is the stable contract; generated operations + the enumerated depth-tier set track upstream (rename/remove = major; add a tier = minor). Supported Stash range in package docs + a programmatic constant.
+- **CI:** minimal Actions (`task check` + `task vuln`). **License:** MIT.
 
-## 10. Grounding — key facts (Stash v0.31.1)
-
-- **Surface (SDL-computed, incl. deprecated aliases):** Query **74** · Mutation **134** · Subscription **3** (`jobsSubscribe`, `loggingSubscribe`, `scanCompleteSubscribe`).
-- **Custom scalars → bindings:** `Time`→`time.Time`; `Timestamp`→`string` (plain passthrough — server parses the relative forms like `">5m"`; no Go-side validation implied); `Int64`→`int64`; `Map`/`Any`→`json.RawMessage`; `BoolMap`→`map[string]bool`; `PluginConfigMap`→`map[string]any` (the SDL declares only an opaque `scalar`; `map[string]any` is looser than its *conventional* server-side `map[string]map[string]any` usage — **round-trip correctness is asserted by the §8 test, not by the SDL**); `Upload`→custom (multipart island). `ID`→`string`.
-- **Interfaces/unions:** `BaseFile` (+`BasicFile`/`VideoFile`/`ImageFile`/`GalleryFile`); union `VisualFile = VideoFile | ImageFile`. `Scene.files` is concrete `VideoFile`. Inline fragments + `__typename`.
-- **Filter/pagination:** `FindFilterType { q, page, per_page (-1=all, def 25), sort, direction }` + per-entity `*FilterType` (`AND`/`OR`/`NOT`) with criterion inputs sharing a `modifier`. `CriterionModifier`: `EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, IS_NULL, NOT_NULL, INCLUDES, INCLUDES_ALL, EXCLUDES, MATCHES_REGEX, NOT_MATCHES_REGEX, BETWEEN, NOT_BETWEEN` — the **symbol** is the wire value. `HierarchicalMultiCriterionInput.depth` (`-1`=all descendants).
-- **Recursive/cyclic types:** Tag, Studio, Group (via `GroupDescription`), Folder, Scene↔performer/studio/tag/group. Several counts take `depth: Int`.
-- **Uploads:** `Upload` in **exactly one** place — `importObjects(input:{file:Upload!})` (conformance-enforced). Entity images are plain `String` (URL/base64).
+## 10. Grounding — schema facts (Stash v0.31.1, spike-confirmed)
+- **Surface:** Query 74 · Mutation 134 · Subscription 3 (`jobsSubscribe`, `loggingSubscribe`, `scanCompleteSubscribe`).
+- **Scalar bindings (all decoded live):** `Time→time.Time`, `Timestamp→string` (plain passthrough; server parses relative forms like `">5m"`), `Int64→int64`, `Map`/`Any→json.RawMessage`, `BoolMap→map[string]bool`, `PluginConfigMap→map[string]any` (SDL declares only an opaque `scalar`; this is looser than its *conventional* server-side shape — round-trip correctness is §8-tested, not SDL-declared), `Upload→stash.Upload` (multipart island). `ID→string`.
+- **Files [A4]:** `Scene.files: [VideoFile!]!` and `Gallery.files: [GalleryFile!]!` are CONCRETE. Interface `BaseFile` (`BasicFile`/`VideoFile`/`ImageFile`/`GalleryFile`) only at `findFile(s)` + `Folder.zip_file`; union `VisualFile = VideoFile | ImageFile` only at `Image.visual_files`. Inline fragments + `__typename`.
+- **Filter/pagination:** `FindFilterType { q, page, per_page (-1=all, default 25), sort, direction }` + per-entity `*FilterType` (`AND/OR/NOT`); `CriterionModifier` (the **symbol** is the wire value): `EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, IS_NULL, NOT_NULL, INCLUDES, INCLUDES_ALL, EXCLUDES, MATCHES_REGEX, NOT_MATCHES_REGEX, BETWEEN, NOT_BETWEEN`. `HierarchicalMultiCriterionInput.depth` (`-1`=all descendants). `IntCriterionInput{value,value2,modifier}` round-trips (confirmed live).
+- **Edges from the SDL only [B5]:** e.g. `Performer` edges are `tags/scenes/groups/stash_ids` — there is NO `Performer.studios`. Recursive/cyclic: Tag, Studio, Group (via `GroupDescription`), Folder, Scene↔performer/studio/tag/group; several counts take `depth: Int`.
+- **Deprecated id args [A6]:** `scene_ids/image_ids/performer_ids: [Int!]` → use `ids: [ID!]`.
+- **Uploads:** `Upload` in exactly one place — `importObjects(input:{file:Upload!})` (conformance-enforced). Entity images are plain `String`.
 - **Version detection:** `query { version { version hash build_time } }`. Vendor with explicit `ref: refs/tags/vX.Y.Z` (not `develop`).
-- **Deprecations** (red-build on upgrade *and* surfaced per-field in the catalog): the `movie` family → `group`; `url`→`urls`; `[Int!]` ids → `[ID!]`; rating `1–5`→`rating100`; `allScenes`/etc.
-- **Danger surface (exact root-field names — the verbatim gated list, §6):** `querySQL`, `execSQL`, `metadataImport` (wipes the DB), `anonymiseDatabase`, `migrate`.
-- **Async model:** `metadata*`/package/migrate mutations return a job `ID!`; progress via `jobsSubscribe` or polling `findJob`/`jobQueue`. Fire-then-track; **terminal jobs age out of the queue** (retention window verified live, §12).
-- **Endpoint/auth:** GraphQL `<base>/graphql`; subscriptions `ws(s)://<base>/graphql`; header `ApiKey: <key>`.
-- **genqlient:** operation-driven; supports subscriptions via a separate WS client; binds scalars via `genqlient.yaml` (custom marshaler/unmarshaler optional, round-trip correctness is the author's responsibility → §8); shared types via named fragments + `@genqlient(typename:)`; interfaces/unions via inline fragments + `__typename`; **no** multipart upload support; pointer+omitempty can't express "omit vs explicit-null" (→ §6 raw-JSON partial-update mechanism).
+- **Deprecations** (red build on upgrade + surfaced per-field in the catalog): `movie`→`group`; `url`→`urls`; `[Int!]` ids→`[ID!]`; rating `1–5`→`rating100`; `allScenes`/etc.
+- **Danger surface (verbatim gated list):** `querySQL`, `execSQL`, `metadataImport`, `anonymiseDatabase`, `migrate`.
+- **Async:** `metadata*`/package/migrate return a job `ID!`; progress via `jobsSubscribe` or polling `findJob`/`jobQueue`; **terminal jobs age out of the queue** (retention window verified live, §12).
+- **Endpoint/auth:** `<base>/graphql`; subscriptions `ws(s)://<base>/graphql`; header `ApiKey: <key>`.
+- **genqlient (v0.8.1, spike-confirmed):** operation-driven; subscriptions via a separate WS client; scalar bindings via `genqlient.yaml`; **canonical types require `flatten` [A1]**; interfaces/unions via inline fragments + `__typename`; no multipart upload; pointer+omitempty can't express omit-vs-explicit-null (→ §6 raw-JSON partial-update).
 
 ## 11. Cross-cutting principles
+- **No hardcoding** (env/flags/config or detected; integration tests env-gated/skipped; only committed constant is the module path).
+- **Secret handling.** ApiKey never logged/echoed/in-catalog; `RoundTripper` + slog redact; secret wrapper placeholder; **and the CLI output layer redacts the `apikey` param leaked by `paths.stream` [B4]** — §8-tested.
+- **Generate from the source of truth** (SDL drives SDK + CLI + catalog; drift = red build, incl. the mutation-set drift gate over the curated `destructive` overlay).
+- **Verify, don't assume** (schema facts, instance version, live-only behaviours, job retention — confirmed firsthand; this revision is spike-backed).
+- **No masking retries** (a bounded, surfaced subscription reconnect is not a masked retry).
+- **Reach for the right library, justify deps:** genqlient, `gqlparser/v2` (build-only), `gorilla/websocket`, `x/sync/errgroup`, `cobra`, stdlib `slog`/`net/http`.
 
-- **No hardcoding.** Instance details, paths, schema version come from env/flags/config or are *detected*. Integration tests read the instance from env and skip when absent. Only committed constant: the project identity (module path).
-- **Secret handling.** The `ApiKey` is never logged, echoed in errors, or emitted in the catalog; the `RoundTripper` and slog path redact it; a secret wrapper returns a placeholder from `String()`/`LogValue()`/`MarshalJSON()`. Tested (§8).
-- **Generate from the source of truth.** The vendored SDL drives the SDK, CLI tree, and catalog; drift = red build — including the **mutation-set drift gate** over the curated `destructive` overlay (§8).
-- **Verify, don't assume.** Schema facts, instance version, and live-only behaviours (subscriptions, keepalive, multipart, the `field` error key, job retention) are confirmed firsthand.
-- **No masking retries.** A failure surfaces; the client never silently retries. A *bounded, surfaced* subscription reconnect (the `--wait` drop contract) is not a masked retry.
-- **Reach for the right library, justify deps.** genqlient, `gqlparser/v2` (build-only), `gorilla/websocket`, `x/sync/errgroup`, `cobra`, stdlib `slog`/`net/http`.
-
-## 12. Open items / gating spikes (before or during build)
-
-- **GATING — `genops` feasibility spike (1–2 days):** on `findScenes` → `Scene` (cyclic + `VideoFile`/`BaseFile`). Prove path-based cycle termination; inline-fragment/`__typename` emission; genqlient acceptance + compile; and that fragment-backed canonical types, depth variants, and cycle termination **coexist** (every occurrence reuses its expected fragment type, never a path-named struct). **Fallback** if impractical: curated hand-authored ops for the high-value ~20% + generated stubs — where a "stub" is still a complete, compiling, fragment-backed op meeting §2/§8 (narrows authorship effort, not the completeness bar).
-- **GATING — selection-policy payload validation:** generate ~10 representative ops (shallow/medium/deep-cyclic), fetch live, record payload size + "useful in one call". Pass/fail bar. **Failure branch (mirrors the genops fallback):** a defined escalation rule — which entities graduate from ref-only to a deeper default tier, and a **cap on how many depth tiers** may be minted before it counts as a policy failure requiring redesign (rather than an open-ended explosion of the SemVer-governed tier set).
-- **Subscription long-idle / keepalive (live):** run a multi-minute scan/generate; confirm the completion event arrives over an idle socket; verify the idle-reaper behaviour and which subprotocol Stash expects; and confirm the **three-state drop contract** (reconnect → resume-if-still-running → `unconfirmed` only if indeterminate, §6) holds over a real long-idle socket.
-- **Job retention:** verify how long Stash retains *terminal* jobs in `findJob`/`jobQueue`, so the `--wait` reconcile can distinguish "job absent because evicted (likely succeeded)" from "job genuinely lost" — seed the wait with the launch timestamp.
-- **Partial-update marshalling:** verify the raw-JSON variable-binding path (§6) actually preserves present/absent/`null` end-to-end against the live instance (not just the golden test).
-- Verify Stash's GraphQL `extensions`/path expose a field-level key before relying on the envelope's `field`.
-- Confirm the exact latest stable Go version at scaffold time; the CLI binary name (`stash`); the MIT default; whether `per_page:-1`/`depth:-1` emit a stderr warning.
+## 12. Open items / spikes
+- **DONE — genops feasibility spike:** PROVEN end-to-end against the live v0.31.1 instance (fragments+flatten → canonical types, path-based cycle termination, interface/union dispatch on `findFiles`/`findImages`, all scalar bindings, deterministic codegen, typed decode of 1,410 scenes). Corrections A1–A6 folded into §4/§5/§10.
+- **DONE — selection-policy payload spike:** policy PASSES as the default (refs `{id,name/title}` 33 B–3 KB/row useful-in-one-call; id-only too thin; one level of cyclic expansion ~27×). Corrections B1–B5 folded into §4/§6/§11.
+- **REMAINING [B6] — seeded-instance re-validation:** the live instance had 0 galleries/images/groups, so the Gallery/Image/Group + `GroupDescription` cyclic branches were validated by schema shape only. Re-validate payloads + cycle termination against an instance with non-empty data before locking those branches (Task 22 acceptance criterion).
+- **Job retention:** verify how long Stash keeps *terminal* jobs in `findJob`/`jobQueue` so the `--wait` reconcile distinguishes "evicted (likely succeeded)" from "genuinely lost"; seed the wait with the launch timestamp.
+- Verify Stash's GraphQL `extensions`/path expose a field-level key before relying on the envelope `field`. Confirm the CLI binary name (`stash`) and the MIT default; whether `per_page:-1`/`depth:-1` emit a stderr warning.
