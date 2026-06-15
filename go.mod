@@ -15,7 +15,7 @@ require (
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/tools v0.46.0 // indirect; A2: forced >= v0.46.0 — genqlient v0.8.1 pins v0.24.0, which fails to build under Go 1.26 (tokeninternal.go: invalid array length). 'go get -tool' re-pins it to the broken version, so re-bump after.
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 tool github.com/Khan/genqlient

@@ -1,0 +1,34 @@
+# Curated operation metadata that cannot be derived from the SDL alone.
+#
+# Lists are keyed by GraphQL root-field name (e.g. metadataScan), not by the
+# generated operation name. Every name is validated against the vendored schema
+# at load time, so a rename or removal upstream is a red build, not a silent
+# drift (see LoadOverlay).
+destructive:
+  - querySQL
+  - execSQL
+  - metadataImport
+  - anonymiseDatabase
+  - migrate
+jobReturning:
+  - migrate
+  - downloadFFMpeg
+  - importObjects
+  - metadataImport
+  - metadataExport
+  - metadataScan
+  - metadataGenerate
+  - metadataAutoTag
+  - metadataClean
+  - metadataCleanGenerated
+  - metadataIdentify
+  - migrateHashNaming
+  - migrateSceneScreenshots
+  - migrateBlobs
+  - optimiseDatabase
+  - installPackages
+  - updatePackages
+  - uninstallPackages
+  - stashBoxBatchPerformerTag
+  - stashBoxBatchStudioTag
+  - stashBoxBatchTagTag
