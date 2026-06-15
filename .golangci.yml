@@ -1,0 +1,19 @@
+# golangci-lint v2 configuration. See https://golangci-lint.run
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - unconvert
+    - errorlint
+  exclusions:
+    generated: lax
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

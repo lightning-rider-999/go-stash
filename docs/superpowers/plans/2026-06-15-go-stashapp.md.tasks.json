@@ -1,10 +1,10 @@
 {
   "planPath": "docs/superpowers/plans/2026-06-15-go-stashapp.md",
-  "lastUpdated": "2026-06-15",
+  "lastUpdated": "2026-06-15T00:00:01Z",
   "note": "Full steps + code live in the plan .md (same task numbers). Spike-confirmed corrections (A1-A6, B1-B6) are in the plan's 'Spike grounding' section and are authoritative over spec v4.",
   "tasks": [
     {
-      "id": 1, "subject": "Task 1: Module scaffold + go.mod (x/tools bump) + Taskfile", "status": "pending",
+      "id": 1, "subject": "Task 1: Module scaffold + go.mod (x/tools bump) + Taskfile", "status": "completed",
       "description": "**Goal:** Compiling, gofmt-clean module on feat/plan with the genqlient toolchain wired and the Go 1.26 x/tools blocker resolved.\n\n**Acceptance Criteria:**\n- [ ] go build/vet ./... exit 0\n- [ ] go.mod has `tool github.com/Khan/genqlient` AND forces golang.org/x/tools >= v0.46.0\n- [ ] `task --list` shows check generate build schema vuln\n\n**Verify:** `go build ./... && go vet ./... && gofmt -l . | wc -l` -> builds clean, 0 unformatted.\n\n```json:metadata\n{\"files\":[\"go.mod\",\"go.sum\",\"Taskfile.yml\",\".golangci.yml\",\"doc.go\"],\"verifyCommand\":\"go build ./... && go vet ./...\",\"acceptanceCriteria\":[\"builds+vets clean\",\"tool directive + x/tools>=v0.46.0\",\"taskfile targets present\"],\"modelTier\":\"standard\",\"note\":\"A2: go get -tool re-pins x/tools to broken v0.24.0; re-bump after.\"}\n```"
     },
     {

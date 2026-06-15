@@ -1,0 +1,46 @@
+# Taskfile for go-stashapp. See https://taskfile.dev
+#
+# The rituals that gate every change live here:
+#   check     gofmt, build, vet, test -race, lint, tidy, codegen-freshness
+#   generate  regenerate the typed surface (genops, then genqlient)
+#   build     compile the stash CLI
+#   schema    refresh the vendored Stash SDL at the pinned tag and re-stamp
+#   vuln      scan for known vulnerabilities (stdlib CVEs matter for a static binary)
+version: '3'
+
+tasks:
+  check:
+    desc: All quality gates — gofmt, build, vet, test -race, lint, tidy, codegen freshness.
+    cmds:
+      - cmd: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt: the following files need formatting:"; echo "$unformatted"; exit 1
+          fi
+      - go build ./...
+      - go vet ./...
+      - go test -race ./...
+      - golangci-lint run
+      - go mod tidy -diff
+      - task: generate
+      - git diff --exit-code
+
+  generate:
+    desc: Regenerate the typed GraphQL surface (genops then genqlient, via go:generate directives).
+    cmds:
+      - go generate ./...
+
+  build:
+    desc: Build the stash CLI to ./bin/stash.
+    cmds:
+      - go build -o bin/stash ./cmd/stash
+
+  schema:
+    desc: Refresh the vendored Stash SDL at the pinned tag (schema/version.txt) and re-stamp.
+    cmds:
+      - bash scripts/refresh-schema.sh
+
+  vuln:
+    desc: Scan for known vulnerabilities (stdlib + dependencies) with govulncheck.
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...

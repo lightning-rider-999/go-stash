@@ -1,0 +1,9 @@
+# Build output (Taskfile `build` target)
+/bin/
+
+# IDE / editor
+/.idea/
+*.swp
+
+# Local environment
+.env
