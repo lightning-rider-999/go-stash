@@ -1,0 +1,1441 @@
+{
+  "schemaVersion": "v0.31.1",
+  "operations": [
+    {
+      "name": "AddGalleryImages",
+      "field": "addGalleryImages",
+      "kind": "mutation",
+      "inputType": "GalleryAddInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "AddGroupSubGroups",
+      "field": "addGroupSubGroups",
+      "kind": "mutation",
+      "inputType": "GroupSubGroupAddInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "AddTempDLNAIP",
+      "field": "addTempDLNAIP",
+      "kind": "mutation",
+      "inputType": "AddTempDLNAIPInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "AllGalleries",
+      "field": "allGalleries",
+      "kind": "query",
+      "returnType": "Gallery",
+      "deprecated": true,
+      "deprecationReason": "Use findGalleries instead"
+    },
+    {
+      "name": "AllImages",
+      "field": "allImages",
+      "kind": "query",
+      "returnType": "Image",
+      "deprecated": true,
+      "deprecationReason": "Use findImages instead"
+    },
+    {
+      "name": "AllMovies",
+      "field": "allMovies",
+      "kind": "query",
+      "returnType": "Movie",
+      "deprecated": true,
+      "deprecationReason": "Use findGroups instead"
+    },
+    {
+      "name": "AllPerformers",
+      "field": "allPerformers",
+      "kind": "query",
+      "returnType": "Performer"
+    },
+    {
+      "name": "AllSceneMarkers",
+      "field": "allSceneMarkers",
+      "kind": "query",
+      "returnType": "SceneMarker",
+      "deprecated": true,
+      "deprecationReason": "Use findSceneMarkers instead"
+    },
+    {
+      "name": "AllScenes",
+      "field": "allScenes",
+      "kind": "query",
+      "returnType": "Scene",
+      "deprecated": true,
+      "deprecationReason": "Use findScenes instead"
+    },
+    {
+      "name": "AllStudios",
+      "field": "allStudios",
+      "kind": "query",
+      "returnType": "Studio",
+      "deprecated": true,
+      "deprecationReason": "Use findStudios instead"
+    },
+    {
+      "name": "AllTags",
+      "field": "allTags",
+      "kind": "query",
+      "returnType": "Tag",
+      "deprecated": true,
+      "deprecationReason": "Use findTags instead"
+    },
+    {
+      "name": "AnonymiseDatabase",
+      "field": "anonymiseDatabase",
+      "kind": "mutation",
+      "inputType": "AnonymiseDatabaseInput",
+      "returnType": "String",
+      "destructive": true
+    },
+    {
+      "name": "AvailablePackages",
+      "field": "availablePackages",
+      "kind": "query",
+      "returnType": "Package"
+    },
+    {
+      "name": "BackupDatabase",
+      "field": "backupDatabase",
+      "kind": "mutation",
+      "inputType": "BackupDatabaseInput",
+      "returnType": "String"
+    },
+    {
+      "name": "BulkGalleryUpdate",
+      "field": "bulkGalleryUpdate",
+      "kind": "mutation",
+      "inputType": "BulkGalleryUpdateInput",
+      "returnType": "Gallery"
+    },
+    {
+      "name": "BulkGroupUpdate",
+      "field": "bulkGroupUpdate",
+      "kind": "mutation",
+      "inputType": "BulkGroupUpdateInput",
+      "returnType": "Group"
+    },
+    {
+      "name": "BulkImageUpdate",
+      "field": "bulkImageUpdate",
+      "kind": "mutation",
+      "inputType": "BulkImageUpdateInput",
+      "returnType": "Image"
+    },
+    {
+      "name": "BulkMovieUpdate",
+      "field": "bulkMovieUpdate",
+      "kind": "mutation",
+      "inputType": "BulkMovieUpdateInput",
+      "returnType": "Movie",
+      "deprecated": true,
+      "deprecationReason": "Use bulkGroupUpdate instead"
+    },
+    {
+      "name": "BulkPerformerUpdate",
+      "field": "bulkPerformerUpdate",
+      "kind": "mutation",
+      "inputType": "BulkPerformerUpdateInput",
+      "returnType": "Performer"
+    },
+    {
+      "name": "BulkSceneMarkerUpdate",
+      "field": "bulkSceneMarkerUpdate",
+      "kind": "mutation",
+      "inputType": "BulkSceneMarkerUpdateInput",
+      "returnType": "SceneMarker"
+    },
+    {
+      "name": "BulkSceneUpdate",
+      "field": "bulkSceneUpdate",
+      "kind": "mutation",
+      "inputType": "BulkSceneUpdateInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "BulkStudioUpdate",
+      "field": "bulkStudioUpdate",
+      "kind": "mutation",
+      "inputType": "BulkStudioUpdateInput",
+      "returnType": "Studio"
+    },
+    {
+      "name": "BulkTagUpdate",
+      "field": "bulkTagUpdate",
+      "kind": "mutation",
+      "inputType": "BulkTagUpdateInput",
+      "returnType": "Tag"
+    },
+    {
+      "name": "Configuration",
+      "field": "configuration",
+      "kind": "query",
+      "returnType": "ConfigResult"
+    },
+    {
+      "name": "ConfigureDLNA",
+      "field": "configureDLNA",
+      "kind": "mutation",
+      "inputType": "ConfigDLNAInput",
+      "returnType": "ConfigDLNAResult"
+    },
+    {
+      "name": "ConfigureDefaults",
+      "field": "configureDefaults",
+      "kind": "mutation",
+      "inputType": "ConfigDefaultSettingsInput",
+      "returnType": "ConfigDefaultSettingsResult"
+    },
+    {
+      "name": "ConfigureGeneral",
+      "field": "configureGeneral",
+      "kind": "mutation",
+      "inputType": "ConfigGeneralInput",
+      "returnType": "ConfigGeneralResult"
+    },
+    {
+      "name": "ConfigureInterface",
+      "field": "configureInterface",
+      "kind": "mutation",
+      "inputType": "ConfigInterfaceInput",
+      "returnType": "ConfigInterfaceResult"
+    },
+    {
+      "name": "ConfigurePlugin",
+      "field": "configurePlugin",
+      "kind": "mutation",
+      "inputType": "Map",
+      "returnType": "Map"
+    },
+    {
+      "name": "ConfigureScraping",
+      "field": "configureScraping",
+      "kind": "mutation",
+      "inputType": "ConfigScrapingInput",
+      "returnType": "ConfigScrapingResult"
+    },
+    {
+      "name": "ConfigureUI",
+      "field": "configureUI",
+      "kind": "mutation",
+      "inputType": "Map",
+      "returnType": "Map"
+    },
+    {
+      "name": "ConfigureUISetting",
+      "field": "configureUISetting",
+      "kind": "mutation",
+      "returnType": "Map"
+    },
+    {
+      "name": "DeleteFiles",
+      "field": "deleteFiles",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "DestroyFiles",
+      "field": "destroyFiles",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "DestroySavedFilter",
+      "field": "destroySavedFilter",
+      "kind": "mutation",
+      "inputType": "DestroyFilterInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "Directory",
+      "field": "directory",
+      "kind": "query",
+      "returnType": "Directory"
+    },
+    {
+      "name": "DisableDLNA",
+      "field": "disableDLNA",
+      "kind": "mutation",
+      "inputType": "DisableDLNAInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "DlnaStatus",
+      "field": "dlnaStatus",
+      "kind": "query",
+      "returnType": "DLNAStatus"
+    },
+    {
+      "name": "DownloadFFMpeg",
+      "field": "downloadFFMpeg",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "EnableDLNA",
+      "field": "enableDLNA",
+      "kind": "mutation",
+      "inputType": "EnableDLNAInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ExecSQL",
+      "field": "execSQL",
+      "kind": "mutation",
+      "returnType": "SQLExecResult",
+      "destructive": true
+    },
+    {
+      "name": "ExportObjects",
+      "field": "exportObjects",
+      "kind": "mutation",
+      "inputType": "ExportObjectsInput",
+      "returnType": "String"
+    },
+    {
+      "name": "FileSetFingerprints",
+      "field": "fileSetFingerprints",
+      "kind": "mutation",
+      "inputType": "FileSetFingerprintsInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "FindDefaultFilter",
+      "field": "findDefaultFilter",
+      "kind": "query",
+      "returnType": "SavedFilter",
+      "deprecated": true,
+      "deprecationReason": "default filter now stored in UI config"
+    },
+    {
+      "name": "FindDuplicateScenes",
+      "field": "findDuplicateScenes",
+      "kind": "query",
+      "returnType": "Scene"
+    },
+    {
+      "name": "FindFile",
+      "field": "findFile",
+      "kind": "query",
+      "returnType": "BaseFile"
+    },
+    {
+      "name": "FindFiles",
+      "field": "findFiles",
+      "kind": "query",
+      "returnType": "FindFilesResultType"
+    },
+    {
+      "name": "FindFolder",
+      "field": "findFolder",
+      "kind": "query",
+      "returnType": "Folder"
+    },
+    {
+      "name": "FindFolders",
+      "field": "findFolders",
+      "kind": "query",
+      "returnType": "FindFoldersResultType"
+    },
+    {
+      "name": "FindGalleries",
+      "field": "findGalleries",
+      "kind": "query",
+      "returnType": "FindGalleriesResultType"
+    },
+    {
+      "name": "FindGallery",
+      "field": "findGallery",
+      "kind": "query",
+      "returnType": "Gallery"
+    },
+    {
+      "name": "FindGroup",
+      "field": "findGroup",
+      "kind": "query",
+      "returnType": "Group"
+    },
+    {
+      "name": "FindGroups",
+      "field": "findGroups",
+      "kind": "query",
+      "returnType": "FindGroupsResultType"
+    },
+    {
+      "name": "FindImage",
+      "field": "findImage",
+      "kind": "query",
+      "returnType": "Image"
+    },
+    {
+      "name": "FindImages",
+      "field": "findImages",
+      "kind": "query",
+      "returnType": "FindImagesResultType"
+    },
+    {
+      "name": "FindJob",
+      "field": "findJob",
+      "kind": "query",
+      "inputType": "FindJobInput",
+      "returnType": "Job"
+    },
+    {
+      "name": "FindMovie",
+      "field": "findMovie",
+      "kind": "query",
+      "returnType": "Movie",
+      "deprecated": true,
+      "deprecationReason": "Use findGroup instead"
+    },
+    {
+      "name": "FindMovies",
+      "field": "findMovies",
+      "kind": "query",
+      "returnType": "FindMoviesResultType",
+      "deprecated": true,
+      "deprecationReason": "Use findGroups instead"
+    },
+    {
+      "name": "FindPerformer",
+      "field": "findPerformer",
+      "kind": "query",
+      "returnType": "Performer"
+    },
+    {
+      "name": "FindPerformers",
+      "field": "findPerformers",
+      "kind": "query",
+      "returnType": "FindPerformersResultType"
+    },
+    {
+      "name": "FindSavedFilter",
+      "field": "findSavedFilter",
+      "kind": "query",
+      "returnType": "SavedFilter"
+    },
+    {
+      "name": "FindSavedFilters",
+      "field": "findSavedFilters",
+      "kind": "query",
+      "returnType": "SavedFilter"
+    },
+    {
+      "name": "FindScene",
+      "field": "findScene",
+      "kind": "query",
+      "returnType": "Scene"
+    },
+    {
+      "name": "FindSceneByHash",
+      "field": "findSceneByHash",
+      "kind": "query",
+      "inputType": "SceneHashInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "FindSceneMarkers",
+      "field": "findSceneMarkers",
+      "kind": "query",
+      "returnType": "FindSceneMarkersResultType"
+    },
+    {
+      "name": "FindScenes",
+      "field": "findScenes",
+      "kind": "query",
+      "returnType": "FindScenesResultType"
+    },
+    {
+      "name": "FindScenesByPathRegex",
+      "field": "findScenesByPathRegex",
+      "kind": "query",
+      "returnType": "FindScenesResultType"
+    },
+    {
+      "name": "FindStudio",
+      "field": "findStudio",
+      "kind": "query",
+      "returnType": "Studio"
+    },
+    {
+      "name": "FindStudios",
+      "field": "findStudios",
+      "kind": "query",
+      "returnType": "FindStudiosResultType"
+    },
+    {
+      "name": "FindTag",
+      "field": "findTag",
+      "kind": "query",
+      "returnType": "Tag"
+    },
+    {
+      "name": "FindTags",
+      "field": "findTags",
+      "kind": "query",
+      "returnType": "FindTagsResultType"
+    },
+    {
+      "name": "GalleriesUpdate",
+      "field": "galleriesUpdate",
+      "kind": "mutation",
+      "inputType": "GalleryUpdateInput",
+      "returnType": "Gallery"
+    },
+    {
+      "name": "GalleryChapterCreate",
+      "field": "galleryChapterCreate",
+      "kind": "mutation",
+      "inputType": "GalleryChapterCreateInput",
+      "returnType": "GalleryChapter"
+    },
+    {
+      "name": "GalleryChapterDestroy",
+      "field": "galleryChapterDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "GalleryChapterUpdate",
+      "field": "galleryChapterUpdate",
+      "kind": "mutation",
+      "inputType": "GalleryChapterUpdateInput",
+      "returnType": "GalleryChapter"
+    },
+    {
+      "name": "GalleryCreate",
+      "field": "galleryCreate",
+      "kind": "mutation",
+      "inputType": "GalleryCreateInput",
+      "returnType": "Gallery"
+    },
+    {
+      "name": "GalleryDestroy",
+      "field": "galleryDestroy",
+      "kind": "mutation",
+      "inputType": "GalleryDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "GalleryUpdate",
+      "field": "galleryUpdate",
+      "kind": "mutation",
+      "inputType": "GalleryUpdateInput",
+      "returnType": "Gallery"
+    },
+    {
+      "name": "GenerateAPIKey",
+      "field": "generateAPIKey",
+      "kind": "mutation",
+      "inputType": "GenerateAPIKeyInput",
+      "returnType": "String"
+    },
+    {
+      "name": "GroupCreate",
+      "field": "groupCreate",
+      "kind": "mutation",
+      "inputType": "GroupCreateInput",
+      "returnType": "Group"
+    },
+    {
+      "name": "GroupDestroy",
+      "field": "groupDestroy",
+      "kind": "mutation",
+      "inputType": "GroupDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "GroupUpdate",
+      "field": "groupUpdate",
+      "kind": "mutation",
+      "inputType": "GroupUpdateInput",
+      "returnType": "Group"
+    },
+    {
+      "name": "GroupsDestroy",
+      "field": "groupsDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ImageDecrementO",
+      "field": "imageDecrementO",
+      "kind": "mutation",
+      "returnType": "Int"
+    },
+    {
+      "name": "ImageDestroy",
+      "field": "imageDestroy",
+      "kind": "mutation",
+      "inputType": "ImageDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ImageIncrementO",
+      "field": "imageIncrementO",
+      "kind": "mutation",
+      "returnType": "Int"
+    },
+    {
+      "name": "ImageResetO",
+      "field": "imageResetO",
+      "kind": "mutation",
+      "returnType": "Int"
+    },
+    {
+      "name": "ImageUpdate",
+      "field": "imageUpdate",
+      "kind": "mutation",
+      "inputType": "ImageUpdateInput",
+      "returnType": "Image"
+    },
+    {
+      "name": "ImagesDestroy",
+      "field": "imagesDestroy",
+      "kind": "mutation",
+      "inputType": "ImagesDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ImagesUpdate",
+      "field": "imagesUpdate",
+      "kind": "mutation",
+      "inputType": "ImageUpdateInput",
+      "returnType": "Image"
+    },
+    {
+      "name": "ImportObjects",
+      "field": "importObjects",
+      "kind": "mutation",
+      "inputType": "ImportObjectsInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "InstallPackages",
+      "field": "installPackages",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "InstalledPackages",
+      "field": "installedPackages",
+      "kind": "query",
+      "returnType": "Package"
+    },
+    {
+      "name": "JobQueue",
+      "field": "jobQueue",
+      "kind": "query",
+      "returnType": "Job"
+    },
+    {
+      "name": "JobsSubscribe",
+      "field": "jobsSubscribe",
+      "kind": "subscription",
+      "returnType": "JobStatusUpdate"
+    },
+    {
+      "name": "Latestversion",
+      "field": "latestversion",
+      "kind": "query",
+      "returnType": "LatestVersion"
+    },
+    {
+      "name": "ListScrapers",
+      "field": "listScrapers",
+      "kind": "query",
+      "returnType": "Scraper"
+    },
+    {
+      "name": "LoggingSubscribe",
+      "field": "loggingSubscribe",
+      "kind": "subscription",
+      "returnType": "LogEntry"
+    },
+    {
+      "name": "Logs",
+      "field": "logs",
+      "kind": "query",
+      "returnType": "LogEntry"
+    },
+    {
+      "name": "MarkerStrings",
+      "field": "markerStrings",
+      "kind": "query",
+      "returnType": "MarkerStringsResultType"
+    },
+    {
+      "name": "MarkerWall",
+      "field": "markerWall",
+      "kind": "query",
+      "returnType": "SceneMarker"
+    },
+    {
+      "name": "MetadataAutoTag",
+      "field": "metadataAutoTag",
+      "kind": "mutation",
+      "inputType": "AutoTagMetadataInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataClean",
+      "field": "metadataClean",
+      "kind": "mutation",
+      "inputType": "CleanMetadataInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataCleanGenerated",
+      "field": "metadataCleanGenerated",
+      "kind": "mutation",
+      "inputType": "CleanGeneratedInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataExport",
+      "field": "metadataExport",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataGenerate",
+      "field": "metadataGenerate",
+      "kind": "mutation",
+      "inputType": "GenerateMetadataInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataIdentify",
+      "field": "metadataIdentify",
+      "kind": "mutation",
+      "inputType": "IdentifyMetadataInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataImport",
+      "field": "metadataImport",
+      "kind": "mutation",
+      "returnType": "ID",
+      "destructive": true,
+      "jobReturning": true
+    },
+    {
+      "name": "MetadataScan",
+      "field": "metadataScan",
+      "kind": "mutation",
+      "inputType": "ScanMetadataInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "Migrate",
+      "field": "migrate",
+      "kind": "mutation",
+      "inputType": "MigrateInput",
+      "returnType": "ID",
+      "destructive": true,
+      "jobReturning": true
+    },
+    {
+      "name": "MigrateBlobs",
+      "field": "migrateBlobs",
+      "kind": "mutation",
+      "inputType": "MigrateBlobsInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MigrateHashNaming",
+      "field": "migrateHashNaming",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MigrateSceneScreenshots",
+      "field": "migrateSceneScreenshots",
+      "kind": "mutation",
+      "inputType": "MigrateSceneScreenshotsInput",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "MoveFiles",
+      "field": "moveFiles",
+      "kind": "mutation",
+      "inputType": "MoveFilesInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "MovieCreate",
+      "field": "movieCreate",
+      "kind": "mutation",
+      "inputType": "MovieCreateInput",
+      "returnType": "Movie",
+      "deprecated": true,
+      "deprecationReason": "Use groupCreate instead"
+    },
+    {
+      "name": "MovieDestroy",
+      "field": "movieDestroy",
+      "kind": "mutation",
+      "inputType": "MovieDestroyInput",
+      "returnType": "Boolean",
+      "deprecated": true,
+      "deprecationReason": "Use groupDestroy instead"
+    },
+    {
+      "name": "MovieUpdate",
+      "field": "movieUpdate",
+      "kind": "mutation",
+      "inputType": "MovieUpdateInput",
+      "returnType": "Movie",
+      "deprecated": true,
+      "deprecationReason": "Use groupUpdate instead"
+    },
+    {
+      "name": "MoviesDestroy",
+      "field": "moviesDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean",
+      "deprecated": true,
+      "deprecationReason": "Use groupsDestroy instead"
+    },
+    {
+      "name": "OptimiseDatabase",
+      "field": "optimiseDatabase",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "ParseSceneFilenames",
+      "field": "parseSceneFilenames",
+      "kind": "query",
+      "returnType": "SceneParserResultType"
+    },
+    {
+      "name": "PerformerCreate",
+      "field": "performerCreate",
+      "kind": "mutation",
+      "inputType": "PerformerCreateInput",
+      "returnType": "Performer"
+    },
+    {
+      "name": "PerformerDestroy",
+      "field": "performerDestroy",
+      "kind": "mutation",
+      "inputType": "PerformerDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "PerformerMerge",
+      "field": "performerMerge",
+      "kind": "mutation",
+      "inputType": "PerformerMergeInput",
+      "returnType": "Performer"
+    },
+    {
+      "name": "PerformerUpdate",
+      "field": "performerUpdate",
+      "kind": "mutation",
+      "inputType": "PerformerUpdateInput",
+      "returnType": "Performer"
+    },
+    {
+      "name": "PerformersDestroy",
+      "field": "performersDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "PluginTasks",
+      "field": "pluginTasks",
+      "kind": "query",
+      "returnType": "PluginTask"
+    },
+    {
+      "name": "Plugins",
+      "field": "plugins",
+      "kind": "query",
+      "returnType": "Plugin"
+    },
+    {
+      "name": "QuerySQL",
+      "field": "querySQL",
+      "kind": "mutation",
+      "returnType": "SQLQueryResult",
+      "destructive": true
+    },
+    {
+      "name": "ReloadPlugins",
+      "field": "reloadPlugins",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ReloadScrapers",
+      "field": "reloadScrapers",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RemoveGalleryImages",
+      "field": "removeGalleryImages",
+      "kind": "mutation",
+      "inputType": "GalleryRemoveInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RemoveGroupSubGroups",
+      "field": "removeGroupSubGroups",
+      "kind": "mutation",
+      "inputType": "GroupSubGroupRemoveInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RemoveTempDLNAIP",
+      "field": "removeTempDLNAIP",
+      "kind": "mutation",
+      "inputType": "RemoveTempDLNAIPInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ReorderSubGroups",
+      "field": "reorderSubGroups",
+      "kind": "mutation",
+      "inputType": "ReorderSubGroupsInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ResetGalleryCover",
+      "field": "resetGalleryCover",
+      "kind": "mutation",
+      "inputType": "GalleryResetCoverInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RevealFileInFileManager",
+      "field": "revealFileInFileManager",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RevealFolderInFileManager",
+      "field": "revealFolderInFileManager",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "RunPluginOperation",
+      "field": "runPluginOperation",
+      "kind": "mutation",
+      "returnType": "Any"
+    },
+    {
+      "name": "RunPluginTask",
+      "field": "runPluginTask",
+      "kind": "mutation",
+      "returnType": "ID"
+    },
+    {
+      "name": "SaveFilter",
+      "field": "saveFilter",
+      "kind": "mutation",
+      "inputType": "SaveFilterInput",
+      "returnType": "SavedFilter"
+    },
+    {
+      "name": "ScanCompleteSubscribe",
+      "field": "scanCompleteSubscribe",
+      "kind": "subscription",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneAddO",
+      "field": "sceneAddO",
+      "kind": "mutation",
+      "returnType": "HistoryMutationResult"
+    },
+    {
+      "name": "SceneAddPlay",
+      "field": "sceneAddPlay",
+      "kind": "mutation",
+      "returnType": "HistoryMutationResult"
+    },
+    {
+      "name": "SceneAssignFile",
+      "field": "sceneAssignFile",
+      "kind": "mutation",
+      "inputType": "AssignSceneFileInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneCreate",
+      "field": "sceneCreate",
+      "kind": "mutation",
+      "inputType": "SceneCreateInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "SceneDecrementO",
+      "field": "sceneDecrementO",
+      "kind": "mutation",
+      "returnType": "Int",
+      "deprecated": true,
+      "deprecationReason": "Use sceneRemoveO instead"
+    },
+    {
+      "name": "SceneDeleteO",
+      "field": "sceneDeleteO",
+      "kind": "mutation",
+      "returnType": "HistoryMutationResult"
+    },
+    {
+      "name": "SceneDeletePlay",
+      "field": "sceneDeletePlay",
+      "kind": "mutation",
+      "returnType": "HistoryMutationResult"
+    },
+    {
+      "name": "SceneDestroy",
+      "field": "sceneDestroy",
+      "kind": "mutation",
+      "inputType": "SceneDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneGenerateScreenshot",
+      "field": "sceneGenerateScreenshot",
+      "kind": "mutation",
+      "returnType": "String"
+    },
+    {
+      "name": "SceneIncrementO",
+      "field": "sceneIncrementO",
+      "kind": "mutation",
+      "returnType": "Int",
+      "deprecated": true,
+      "deprecationReason": "Use sceneAddO instead"
+    },
+    {
+      "name": "SceneIncrementPlayCount",
+      "field": "sceneIncrementPlayCount",
+      "kind": "mutation",
+      "returnType": "Int",
+      "deprecated": true,
+      "deprecationReason": "Use sceneAddPlay instead"
+    },
+    {
+      "name": "SceneMarkerCreate",
+      "field": "sceneMarkerCreate",
+      "kind": "mutation",
+      "inputType": "SceneMarkerCreateInput",
+      "returnType": "SceneMarker"
+    },
+    {
+      "name": "SceneMarkerDestroy",
+      "field": "sceneMarkerDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneMarkerTags",
+      "field": "sceneMarkerTags",
+      "kind": "query",
+      "returnType": "SceneMarkerTag"
+    },
+    {
+      "name": "SceneMarkerUpdate",
+      "field": "sceneMarkerUpdate",
+      "kind": "mutation",
+      "inputType": "SceneMarkerUpdateInput",
+      "returnType": "SceneMarker"
+    },
+    {
+      "name": "SceneMarkersDestroy",
+      "field": "sceneMarkersDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneMerge",
+      "field": "sceneMerge",
+      "kind": "mutation",
+      "inputType": "SceneMergeInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "SceneResetActivity",
+      "field": "sceneResetActivity",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneResetO",
+      "field": "sceneResetO",
+      "kind": "mutation",
+      "returnType": "Int"
+    },
+    {
+      "name": "SceneResetPlayCount",
+      "field": "sceneResetPlayCount",
+      "kind": "mutation",
+      "returnType": "Int"
+    },
+    {
+      "name": "SceneSaveActivity",
+      "field": "sceneSaveActivity",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SceneStreams",
+      "field": "sceneStreams",
+      "kind": "query",
+      "returnType": "SceneStreamEndpoint"
+    },
+    {
+      "name": "SceneUpdate",
+      "field": "sceneUpdate",
+      "kind": "mutation",
+      "inputType": "SceneUpdateInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "SceneWall",
+      "field": "sceneWall",
+      "kind": "query",
+      "returnType": "Scene"
+    },
+    {
+      "name": "ScenesDestroy",
+      "field": "scenesDestroy",
+      "kind": "mutation",
+      "inputType": "ScenesDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "ScenesUpdate",
+      "field": "scenesUpdate",
+      "kind": "mutation",
+      "inputType": "SceneUpdateInput",
+      "returnType": "Scene"
+    },
+    {
+      "name": "ScrapeGalleryURL",
+      "field": "scrapeGalleryURL",
+      "kind": "query",
+      "returnType": "ScrapedGallery"
+    },
+    {
+      "name": "ScrapeGroupURL",
+      "field": "scrapeGroupURL",
+      "kind": "query",
+      "returnType": "ScrapedGroup"
+    },
+    {
+      "name": "ScrapeImageURL",
+      "field": "scrapeImageURL",
+      "kind": "query",
+      "returnType": "ScrapedImage"
+    },
+    {
+      "name": "ScrapeMovieURL",
+      "field": "scrapeMovieURL",
+      "kind": "query",
+      "returnType": "ScrapedMovie",
+      "deprecated": true,
+      "deprecationReason": "Use scrapeGroupURL instead"
+    },
+    {
+      "name": "ScrapeMultiPerformers",
+      "field": "scrapeMultiPerformers",
+      "kind": "query",
+      "inputType": "ScrapeMultiPerformersInput",
+      "returnType": "ScrapedPerformer"
+    },
+    {
+      "name": "ScrapeMultiScenes",
+      "field": "scrapeMultiScenes",
+      "kind": "query",
+      "inputType": "ScrapeMultiScenesInput",
+      "returnType": "ScrapedScene"
+    },
+    {
+      "name": "ScrapePerformerURL",
+      "field": "scrapePerformerURL",
+      "kind": "query",
+      "returnType": "ScrapedPerformer"
+    },
+    {
+      "name": "ScrapeSceneURL",
+      "field": "scrapeSceneURL",
+      "kind": "query",
+      "returnType": "ScrapedScene"
+    },
+    {
+      "name": "ScrapeSingleGallery",
+      "field": "scrapeSingleGallery",
+      "kind": "query",
+      "inputType": "ScrapeSingleGalleryInput",
+      "returnType": "ScrapedGallery"
+    },
+    {
+      "name": "ScrapeSingleGroup",
+      "field": "scrapeSingleGroup",
+      "kind": "query",
+      "inputType": "ScrapeSingleGroupInput",
+      "returnType": "ScrapedGroup"
+    },
+    {
+      "name": "ScrapeSingleImage",
+      "field": "scrapeSingleImage",
+      "kind": "query",
+      "inputType": "ScrapeSingleImageInput",
+      "returnType": "ScrapedImage"
+    },
+    {
+      "name": "ScrapeSingleMovie",
+      "field": "scrapeSingleMovie",
+      "kind": "query",
+      "inputType": "ScrapeSingleMovieInput",
+      "returnType": "ScrapedMovie",
+      "deprecated": true,
+      "deprecationReason": "Use scrapeSingleGroup instead"
+    },
+    {
+      "name": "ScrapeSinglePerformer",
+      "field": "scrapeSinglePerformer",
+      "kind": "query",
+      "inputType": "ScrapeSinglePerformerInput",
+      "returnType": "ScrapedPerformer"
+    },
+    {
+      "name": "ScrapeSingleScene",
+      "field": "scrapeSingleScene",
+      "kind": "query",
+      "inputType": "ScrapeSingleSceneInput",
+      "returnType": "ScrapedScene"
+    },
+    {
+      "name": "ScrapeSingleStudio",
+      "field": "scrapeSingleStudio",
+      "kind": "query",
+      "inputType": "ScrapeSingleStudioInput",
+      "returnType": "ScrapedStudio"
+    },
+    {
+      "name": "ScrapeSingleTag",
+      "field": "scrapeSingleTag",
+      "kind": "query",
+      "inputType": "ScrapeSingleTagInput",
+      "returnType": "ScrapedTag"
+    },
+    {
+      "name": "ScrapeURL",
+      "field": "scrapeURL",
+      "kind": "query",
+      "returnType": "ScrapedContent"
+    },
+    {
+      "name": "SetDefaultFilter",
+      "field": "setDefaultFilter",
+      "kind": "mutation",
+      "inputType": "SetDefaultFilterInput",
+      "returnType": "Boolean",
+      "deprecated": true,
+      "deprecationReason": "now uses UI config"
+    },
+    {
+      "name": "SetGalleryCover",
+      "field": "setGalleryCover",
+      "kind": "mutation",
+      "inputType": "GallerySetCoverInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SetPluginsEnabled",
+      "field": "setPluginsEnabled",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "Setup",
+      "field": "setup",
+      "kind": "mutation",
+      "inputType": "SetupInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "StashBoxBatchPerformerTag",
+      "field": "stashBoxBatchPerformerTag",
+      "kind": "mutation",
+      "inputType": "StashBoxBatchTagInput",
+      "returnType": "String",
+      "jobReturning": true
+    },
+    {
+      "name": "StashBoxBatchStudioTag",
+      "field": "stashBoxBatchStudioTag",
+      "kind": "mutation",
+      "inputType": "StashBoxBatchTagInput",
+      "returnType": "String",
+      "jobReturning": true
+    },
+    {
+      "name": "StashBoxBatchTagTag",
+      "field": "stashBoxBatchTagTag",
+      "kind": "mutation",
+      "inputType": "StashBoxBatchTagInput",
+      "returnType": "String",
+      "jobReturning": true
+    },
+    {
+      "name": "Stats",
+      "field": "stats",
+      "kind": "query",
+      "returnType": "StatsResultType"
+    },
+    {
+      "name": "StopAllJobs",
+      "field": "stopAllJobs",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "StopJob",
+      "field": "stopJob",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "StudioCreate",
+      "field": "studioCreate",
+      "kind": "mutation",
+      "inputType": "StudioCreateInput",
+      "returnType": "Studio"
+    },
+    {
+      "name": "StudioDestroy",
+      "field": "studioDestroy",
+      "kind": "mutation",
+      "inputType": "StudioDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "StudioUpdate",
+      "field": "studioUpdate",
+      "kind": "mutation",
+      "inputType": "StudioUpdateInput",
+      "returnType": "Studio"
+    },
+    {
+      "name": "StudiosDestroy",
+      "field": "studiosDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SubmitStashBoxFingerprints",
+      "field": "submitStashBoxFingerprints",
+      "kind": "mutation",
+      "inputType": "StashBoxFingerprintSubmissionInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "SubmitStashBoxPerformerDraft",
+      "field": "submitStashBoxPerformerDraft",
+      "kind": "mutation",
+      "inputType": "StashBoxDraftSubmissionInput",
+      "returnType": "ID"
+    },
+    {
+      "name": "SubmitStashBoxSceneDraft",
+      "field": "submitStashBoxSceneDraft",
+      "kind": "mutation",
+      "inputType": "StashBoxDraftSubmissionInput",
+      "returnType": "ID"
+    },
+    {
+      "name": "SystemStatus",
+      "field": "systemStatus",
+      "kind": "query",
+      "returnType": "SystemStatus"
+    },
+    {
+      "name": "TagCreate",
+      "field": "tagCreate",
+      "kind": "mutation",
+      "inputType": "TagCreateInput",
+      "returnType": "Tag"
+    },
+    {
+      "name": "TagDestroy",
+      "field": "tagDestroy",
+      "kind": "mutation",
+      "inputType": "TagDestroyInput",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "TagUpdate",
+      "field": "tagUpdate",
+      "kind": "mutation",
+      "inputType": "TagUpdateInput",
+      "returnType": "Tag"
+    },
+    {
+      "name": "TagsDestroy",
+      "field": "tagsDestroy",
+      "kind": "mutation",
+      "returnType": "Boolean"
+    },
+    {
+      "name": "TagsMerge",
+      "field": "tagsMerge",
+      "kind": "mutation",
+      "inputType": "TagsMergeInput",
+      "returnType": "Tag"
+    },
+    {
+      "name": "UninstallPackages",
+      "field": "uninstallPackages",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "UpdatePackages",
+      "field": "updatePackages",
+      "kind": "mutation",
+      "returnType": "ID",
+      "jobReturning": true
+    },
+    {
+      "name": "ValidateStashBoxCredentials",
+      "field": "validateStashBoxCredentials",
+      "kind": "query",
+      "inputType": "StashBoxInput",
+      "returnType": "StashBoxValidationResult"
+    },
+    {
+      "name": "Version",
+      "field": "version",
+      "kind": "query",
+      "returnType": "Version"
+    }
+  ]
+}

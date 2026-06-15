@@ -2,6 +2,7 @@ package genops
 
 import (
 	"fmt"
+	"go/token"
 	"sort"
 	"strings"
 	"unicode"
@@ -55,6 +56,17 @@ func exportName(field string) string {
 	return string(r)
 }
 
+// safeVarName returns a GraphQL variable name for an argument that is a valid Go
+// identifier: genqlient turns each variable into a function parameter, so an
+// argument named after a Go keyword (e.g. type) is suffixed with an underscore.
+// The forwarded field argument keeps its real name.
+func safeVarName(arg string) string {
+	if token.IsKeyword(arg) {
+		return arg + "_"
+	}
+	return arg
+}
+
 // nonDeprecatedArgs returns a field's arguments with @deprecated ones removed.
 func nonDeprecatedArgs(f *ast.FieldDefinition) ast.ArgumentDefinitionList {
 	var out ast.ArgumentDefinitionList
@@ -77,7 +89,7 @@ func (fs *FragmentSet) renderOperation(ot ast.Operation, name string, f *ast.Fie
 			if i > 0 {
 				b.WriteString(", ")
 			}
-			fmt.Fprintf(&b, "$%s: %s", a.Name, a.Type.String())
+			fmt.Fprintf(&b, "$%s: %s", safeVarName(a.Name), a.Type.String())
 			if a.DefaultValue != nil {
 				fmt.Fprintf(&b, " = %s", a.DefaultValue.String())
 			}
@@ -99,7 +111,7 @@ func (fs *FragmentSet) renderRootField(b *strings.Builder, f *ast.FieldDefinitio
 	if len(args) > 0 {
 		parts := make([]string, len(args))
 		for i, a := range args {
-			parts[i] = fmt.Sprintf("%s: $%s", a.Name, a.Name)
+			parts[i] = fmt.Sprintf("%s: $%s", a.Name, safeVarName(a.Name))
 		}
 		call = fmt.Sprintf("%s(%s)", f.Name, strings.Join(parts, ", "))
 	}
@@ -114,10 +126,13 @@ func (fs *FragmentSet) renderRootField(b *strings.Builder, f *ast.FieldDefinitio
 		fmt.Fprintf(b, "%s}\n", indent)
 	case IsRefable(def):
 		// Entity payload: flatten the single fragment spread so the response
-		// field binds directly to the canonical <T>Fields type.
+		// field binds directly to the canonical <T>Fields type. ensureFields
+		// materialises the fragment — an entity returned only directly (e.g.
+		// SavedFilter) is otherwise referenced but never emitted.
+		frag := fs.ensureFields(def)
 		fmt.Fprintf(b, "%s%s\n", indent, flattenDirective)
 		fmt.Fprintf(b, "%s%s {\n", indent, call)
-		fmt.Fprintf(b, "%s...%s\n", indent+"  ", FieldsName(def.Name))
+		fmt.Fprintf(b, "%s...%s\n", indent+"  ", frag)
 		fmt.Fprintf(b, "%s}\n", indent)
 	default:
 		// Result-wrapper container: expand inline with entity edges full (the

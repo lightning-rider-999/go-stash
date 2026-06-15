@@ -111,15 +111,24 @@ type pathNamedRecorder struct {
 	types map[string]bool
 }
 
-// BuildFragments walks the schema and produces the global fragment set. It is
-// deterministic: the same schema yields byte-identical fragment text.
-func BuildFragments(s *ast.Schema) *FragmentSet {
-	fs := &FragmentSet{
+// newFragmentSet returns an empty fragment set over a schema. Fragments are
+// materialised on demand by ensureRef / ensureFields.
+func newFragmentSet(s *ast.Schema) *FragmentSet {
+	return &FragmentSet{
 		schema:   s,
 		bodies:   map[string]string{},
 		building: map[string]bool{},
 		path:     &pathNamedRecorder{types: map[string]bool{}},
 	}
+}
+
+// BuildFragments walks the schema and produces the full fragment set for every
+// reachable object type. It is deterministic: the same schema yields
+// byte-identical fragment text. Generation uses [Compile], which builds only
+// operation-reachable fragments; BuildFragments materialises the whole universe
+// for conformance.
+func BuildFragments(s *ast.Schema) *FragmentSet {
+	fs := newFragmentSet(s)
 	// Materialise a fragment for every ref-able entity and every expandable
 	// object type reachable from the schema, in sorted type order so cycle
 	// termination is independent of any operation's walk order.
@@ -267,17 +276,70 @@ func (fs *FragmentSet) writeAbstractEdge(b *strings.Builder, f *ast.FieldDefinit
 }
 
 // writeAbstractBody renders the inside of a union/interface selection at indent:
-// __typename followed by one inline fragment per concrete member spreading its
-// Fields fragment. __typename is mandatory — the generated UnmarshalJSON keys on
-// it (A5).
+// __typename (mandatory — the generated UnmarshalJSON keys on it, A5) followed
+// by one inline fragment per concrete member.
+//
+// When the members agree on the type of every shared field (BaseFile,
+// VisualFile), each member spreads its canonical Fields fragment. When they
+// disagree (ScrapedContent: duration is Int on ScrapedScene but String on
+// ScrapedGroup), spreading would violate GraphQL's SameResponseShape rule, so
+// each member's scalar leaves are selected under a member-prefixed alias
+// instead; full data for those types remains reachable through the concrete
+// scrape operations.
 func (fs *FragmentSet) writeAbstractBody(b *strings.Builder, t *ast.Definition, indent string) {
 	fs.path.types[t.Name] = true
 	fmt.Fprintf(b, "%s__typename\n", indent)
-	for _, m := range fs.abstractMembers(t) {
+	members := fs.abstractMembers(t)
+	conflict := abstractHasConflict(fs.schema, members)
+	for _, m := range members {
 		mdef := fs.schema.Types[m]
 		fmt.Fprintf(b, "%s... on %s {\n", indent, m)
-		writeSpreadBody(b, fs.ensureFields(mdef), indent+"  ")
+		if conflict {
+			fs.writeAliasedScalars(b, mdef, m, indent+"  ")
+		} else {
+			writeSpreadBody(b, fs.ensureFields(mdef), indent+"  ")
+		}
 		fmt.Fprintf(b, "%s}\n", indent)
+	}
+}
+
+// abstractHasConflict reports whether two members of an abstract type disagree
+// on the type of a shared, selectable field — in which case spreading their
+// Fields fragments into one selection set is invalid GraphQL.
+func abstractHasConflict(s *ast.Schema, members []string) bool {
+	seen := map[string]string{}
+	for _, m := range members {
+		def := s.Types[m]
+		if def == nil {
+			continue
+		}
+		for _, f := range def.Fields {
+			if !selectable(f) {
+				continue
+			}
+			if prev, ok := seen[f.Name]; ok && prev != f.Type.String() {
+				return true
+			}
+			seen[f.Name] = f.Type.String()
+		}
+	}
+	return false
+}
+
+// writeAliasedScalars selects a member's scalar/enum leaves, each aliased with
+// the member type name so no two members of a conflicting union collide on a
+// response name.
+func (fs *FragmentSet) writeAliasedScalars(b *strings.Builder, def *ast.Definition, prefix, indent string) {
+	for _, f := range def.Fields {
+		if !selectable(f) {
+			continue
+		}
+		if t := fs.schema.Types[BaseTypeName(f.Type)]; t != nil {
+			switch t.Kind {
+			case ast.Scalar, ast.Enum:
+				fmt.Fprintf(b, "%s%s_%s: %s\n", indent, prefix, f.Name, f.Name)
+			}
+		}
 	}
 }
 
