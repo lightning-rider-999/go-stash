@@ -182,3 +182,7 @@ task vuln     # govulncheck (stdlib + dependency CVEs)
 `task check`'s codegen-freshness step regenerates the typed surface and fails if
 any committed generated artifact changed, so the vendored schema and the typed
 client can never silently drift apart.
+
+## License
+
+[MIT](LICENSE).
