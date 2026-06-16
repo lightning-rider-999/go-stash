@@ -10,13 +10,9 @@ fragment BasicFileFields on BasicFile {
   id
   path
   basename
+  # @genqlient(flatten: true)
   parent_folder {
-    id
-    path
-    basename
-    mod_time
-    created_at
-    updated_at
+    ...FolderFields
   }
   zip_file {
     id
@@ -101,9 +97,14 @@ fragment FolderFields on Folder {
     created_at
     updated_at
   }
-  # @genqlient(flatten: true)
   zip_file {
-    ...BasicFileFields
+    id
+    path
+    basename
+    mod_time
+    size
+    created_at
+    updated_at
   }
   sub_folders {
     id
@@ -489,6 +490,10 @@ fragment PluginFields on Plugin {
   tasks {
     name
     description
+    # @genqlient(flatten: true)
+    plugin {
+      ...PluginRef
+    }
   }
   hooks {
     name

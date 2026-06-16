@@ -333,16 +333,16 @@ func (v *BackupDatabaseResponse) GetBackupDatabase() string { return v.BackupDat
 
 // BasicFileFields includes the GraphQL fields of BasicFile requested by the fragment BasicFileFields.
 type BasicFileFields struct {
-	Id            string                              `json:"id"`
-	Path          string                              `json:"path"`
-	Basename      string                              `json:"basename"`
-	Parent_folder *BasicFileFieldsParent_folderFolder `json:"parent_folder"`
-	Zip_file      *BasicFileFieldsZip_fileBasicFile   `json:"zip_file"`
-	Mod_time      time.Time                           `json:"mod_time"`
-	Size          int64                               `json:"size"`
-	Fingerprints  []*FingerprintFields                `json:"fingerprints"`
-	Created_at    time.Time                           `json:"created_at"`
-	Updated_at    time.Time                           `json:"updated_at"`
+	Id            string                            `json:"id"`
+	Path          string                            `json:"path"`
+	Basename      string                            `json:"basename"`
+	Parent_folder *FolderFields                     `json:"parent_folder"`
+	Zip_file      *BasicFileFieldsZip_fileBasicFile `json:"zip_file"`
+	Mod_time      time.Time                         `json:"mod_time"`
+	Size          int64                             `json:"size"`
+	Fingerprints  []*FingerprintFields              `json:"fingerprints"`
+	Created_at    time.Time                         `json:"created_at"`
+	Updated_at    time.Time                         `json:"updated_at"`
 }
 
 // GetId returns BasicFileFields.Id, and is useful for accessing the field via an interface.
@@ -355,9 +355,7 @@ func (v *BasicFileFields) GetPath() string { return v.Path }
 func (v *BasicFileFields) GetBasename() string { return v.Basename }
 
 // GetParent_folder returns BasicFileFields.Parent_folder, and is useful for accessing the field via an interface.
-func (v *BasicFileFields) GetParent_folder() *BasicFileFieldsParent_folderFolder {
-	return v.Parent_folder
-}
+func (v *BasicFileFields) GetParent_folder() *FolderFields { return v.Parent_folder }
 
 // GetZip_file returns BasicFileFields.Zip_file, and is useful for accessing the field via an interface.
 func (v *BasicFileFields) GetZip_file() *BasicFileFieldsZip_fileBasicFile { return v.Zip_file }
@@ -376,34 +374,6 @@ func (v *BasicFileFields) GetCreated_at() time.Time { return v.Created_at }
 
 // GetUpdated_at returns BasicFileFields.Updated_at, and is useful for accessing the field via an interface.
 func (v *BasicFileFields) GetUpdated_at() time.Time { return v.Updated_at }
-
-// BasicFileFieldsParent_folderFolder includes the requested fields of the GraphQL type Folder.
-type BasicFileFieldsParent_folderFolder struct {
-	Id         string    `json:"id"`
-	Path       string    `json:"path"`
-	Basename   string    `json:"basename"`
-	Mod_time   time.Time `json:"mod_time"`
-	Created_at time.Time `json:"created_at"`
-	Updated_at time.Time `json:"updated_at"`
-}
-
-// GetId returns BasicFileFieldsParent_folderFolder.Id, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetId() string { return v.Id }
-
-// GetPath returns BasicFileFieldsParent_folderFolder.Path, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetPath() string { return v.Path }
-
-// GetBasename returns BasicFileFieldsParent_folderFolder.Basename, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetBasename() string { return v.Basename }
-
-// GetMod_time returns BasicFileFieldsParent_folderFolder.Mod_time, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetMod_time() time.Time { return v.Mod_time }
-
-// GetCreated_at returns BasicFileFieldsParent_folderFolder.Created_at, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetCreated_at() time.Time { return v.Created_at }
-
-// GetUpdated_at returns BasicFileFieldsParent_folderFolder.Updated_at, and is useful for accessing the field via an interface.
-func (v *BasicFileFieldsParent_folderFolder) GetUpdated_at() time.Time { return v.Updated_at }
 
 // BasicFileFieldsZip_fileBasicFile includes the requested fields of the GraphQL type BasicFile.
 type BasicFileFieldsZip_fileBasicFile struct {
@@ -4493,7 +4463,7 @@ func (v *FindFileFindFileBasicFile) GetPath() string { return v.BasicFileFields.
 func (v *FindFileFindFileBasicFile) GetBasename() string { return v.BasicFileFields.Basename }
 
 // GetParent_folder returns FindFileFindFileBasicFile.Parent_folder, and is useful for accessing the field via an interface.
-func (v *FindFileFindFileBasicFile) GetParent_folder() *BasicFileFieldsParent_folderFolder {
+func (v *FindFileFindFileBasicFile) GetParent_folder() *FolderFields {
 	return v.BasicFileFields.Parent_folder
 }
 
@@ -4553,7 +4523,7 @@ type __premarshalFindFileFindFileBasicFile struct {
 
 	Basename string `json:"basename"`
 
-	Parent_folder *BasicFileFieldsParent_folderFolder `json:"parent_folder"`
+	Parent_folder *FolderFields `json:"parent_folder"`
 
 	Zip_file *BasicFileFieldsZip_fileBasicFile `json:"zip_file"`
 
@@ -5346,7 +5316,7 @@ func (v *FindFilesFindFilesFindFilesResultTypeFilesBasicFile) GetBasename() stri
 }
 
 // GetParent_folder returns FindFilesFindFilesFindFilesResultTypeFilesBasicFile.Parent_folder, and is useful for accessing the field via an interface.
-func (v *FindFilesFindFilesFindFilesResultTypeFilesBasicFile) GetParent_folder() *BasicFileFieldsParent_folderFolder {
+func (v *FindFilesFindFilesFindFilesResultTypeFilesBasicFile) GetParent_folder() *FolderFields {
 	return v.BasicFileFields.Parent_folder
 }
 
@@ -5414,7 +5384,7 @@ type __premarshalFindFilesFindFilesFindFilesResultTypeFilesBasicFile struct {
 
 	Basename string `json:"basename"`
 
-	Parent_folder *BasicFileFieldsParent_folderFolder `json:"parent_folder"`
+	Parent_folder *FolderFields `json:"parent_folder"`
 
 	Zip_file *BasicFileFieldsZip_fileBasicFile `json:"zip_file"`
 
@@ -6614,7 +6584,7 @@ type FolderFields struct {
 	Parent_folder *FolderFieldsParent_folderFolder `json:"parent_folder"`
 	// Returns all parent folders in order from immediate parent to top-level
 	Parent_folders []*FolderFieldsParent_foldersFolder `json:"parent_folders"`
-	Zip_file       *BasicFileFields                    `json:"zip_file"`
+	Zip_file       *FolderFieldsZip_fileBasicFile      `json:"zip_file"`
 	// Returns direct sub-folders
 	Sub_folders []*FolderFieldsSub_foldersFolder `json:"sub_folders"`
 	Mod_time    time.Time                        `json:"mod_time"`
@@ -6640,7 +6610,7 @@ func (v *FolderFields) GetParent_folders() []*FolderFieldsParent_foldersFolder {
 }
 
 // GetZip_file returns FolderFields.Zip_file, and is useful for accessing the field via an interface.
-func (v *FolderFields) GetZip_file() *BasicFileFields { return v.Zip_file }
+func (v *FolderFields) GetZip_file() *FolderFieldsZip_fileBasicFile { return v.Zip_file }
 
 // GetSub_folders returns FolderFields.Sub_folders, and is useful for accessing the field via an interface.
 func (v *FolderFields) GetSub_folders() []*FolderFieldsSub_foldersFolder { return v.Sub_folders }
@@ -6737,6 +6707,38 @@ func (v *FolderFieldsSub_foldersFolder) GetCreated_at() time.Time { return v.Cre
 
 // GetUpdated_at returns FolderFieldsSub_foldersFolder.Updated_at, and is useful for accessing the field via an interface.
 func (v *FolderFieldsSub_foldersFolder) GetUpdated_at() time.Time { return v.Updated_at }
+
+// FolderFieldsZip_fileBasicFile includes the requested fields of the GraphQL type BasicFile.
+type FolderFieldsZip_fileBasicFile struct {
+	Id         string    `json:"id"`
+	Path       string    `json:"path"`
+	Basename   string    `json:"basename"`
+	Mod_time   time.Time `json:"mod_time"`
+	Size       int64     `json:"size"`
+	Created_at time.Time `json:"created_at"`
+	Updated_at time.Time `json:"updated_at"`
+}
+
+// GetId returns FolderFieldsZip_fileBasicFile.Id, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetId() string { return v.Id }
+
+// GetPath returns FolderFieldsZip_fileBasicFile.Path, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetPath() string { return v.Path }
+
+// GetBasename returns FolderFieldsZip_fileBasicFile.Basename, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetBasename() string { return v.Basename }
+
+// GetMod_time returns FolderFieldsZip_fileBasicFile.Mod_time, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetMod_time() time.Time { return v.Mod_time }
+
+// GetSize returns FolderFieldsZip_fileBasicFile.Size, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetSize() int64 { return v.Size }
+
+// GetCreated_at returns FolderFieldsZip_fileBasicFile.Created_at, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetCreated_at() time.Time { return v.Created_at }
+
+// GetUpdated_at returns FolderFieldsZip_fileBasicFile.Updated_at, and is useful for accessing the field via an interface.
+func (v *FolderFieldsZip_fileBasicFile) GetUpdated_at() time.Time { return v.Updated_at }
 
 type FolderFilterType struct {
 	AND           *FolderFilterType                `json:"AND,omitempty"`
@@ -11534,8 +11536,9 @@ func (v *PluginFieldsHooksPluginHook) GetPlugin() *PluginRef { return v.Plugin }
 
 // PluginFieldsTasksPluginTask includes the requested fields of the GraphQL type PluginTask.
 type PluginFieldsTasksPluginTask struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Plugin      *PluginRef `json:"plugin"`
 }
 
 // GetName returns PluginFieldsTasksPluginTask.Name, and is useful for accessing the field via an interface.
@@ -11543,6 +11546,9 @@ func (v *PluginFieldsTasksPluginTask) GetName() string { return v.Name }
 
 // GetDescription returns PluginFieldsTasksPluginTask.Description, and is useful for accessing the field via an interface.
 func (v *PluginFieldsTasksPluginTask) GetDescription() string { return v.Description }
+
+// GetPlugin returns PluginFieldsTasksPluginTask.Plugin, and is useful for accessing the field via an interface.
+func (v *PluginFieldsTasksPluginTask) GetPlugin() *PluginRef { return v.Plugin }
 
 // PluginPathsFields includes the GraphQL fields of PluginPaths requested by the fragment PluginPathsFields.
 type PluginPathsFields struct {
@@ -25843,7 +25849,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -25890,12 +25902,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -26076,7 +26083,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -26095,12 +26108,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -26530,7 +26538,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -26549,12 +26563,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -26962,7 +26971,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -27009,12 +27024,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -27290,7 +27300,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -27309,12 +27325,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -27760,7 +27771,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -27779,12 +27796,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -29342,7 +29354,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -29361,12 +29379,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -29442,12 +29455,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -29531,10 +29539,6 @@ fragment VideoFileFields on VideoFile {
 	created_at
 	updated_at
 }
-fragment FingerprintFields on Fingerprint {
-	type
-	value
-}
 fragment FolderFields on Folder {
 	id
 	path
@@ -29556,7 +29560,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -29569,6 +29579,10 @@ fragment FolderFields on Folder {
 	mod_time
 	created_at
 	updated_at
+}
+fragment FingerprintFields on Fingerprint {
+	type
+	value
 }
 `
 
@@ -29629,12 +29643,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -29718,10 +29727,6 @@ fragment VideoFileFields on VideoFile {
 	created_at
 	updated_at
 }
-fragment FingerprintFields on Fingerprint {
-	type
-	value
-}
 fragment FolderFields on Folder {
 	id
 	path
@@ -29743,7 +29748,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -29756,6 +29767,10 @@ fragment FolderFields on Folder {
 	mod_time
 	created_at
 	updated_at
+}
+fragment FingerprintFields on Fingerprint {
+	type
+	value
 }
 `
 
@@ -29832,6 +29847,38 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
+		... FolderFields
+	}
+	zip_file {
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
+	}
+	mod_time
+	size
+	fingerprints {
+		... FingerprintFields
+	}
+	created_at
+	updated_at
+}
+fragment FolderFields on Folder {
+	id
+	path
+	basename
+	parent_folder {
+		id
+		path
+		basename
+		mod_time
+		created_at
+		updated_at
+	}
+	parent_folders {
 		id
 		path
 		basename
@@ -29848,11 +29895,15 @@ fragment BasicFileFields on BasicFile {
 		created_at
 		updated_at
 	}
-	mod_time
-	size
-	fingerprints {
-		... FingerprintFields
+	sub_folders {
+		id
+		path
+		basename
+		mod_time
+		created_at
+		updated_at
 	}
+	mod_time
 	created_at
 	updated_at
 }
@@ -29920,7 +29971,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -29933,39 +29990,6 @@ fragment FolderFields on Folder {
 	mod_time
 	created_at
 	updated_at
-}
-fragment BasicFileFields on BasicFile {
-	id
-	path
-	basename
-	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
-	}
-	zip_file {
-		id
-		path
-		basename
-		mod_time
-		size
-		created_at
-		updated_at
-	}
-	mod_time
-	size
-	fingerprints {
-		... FingerprintFields
-	}
-	created_at
-	updated_at
-}
-fragment FingerprintFields on Fingerprint {
-	type
-	value
 }
 `
 
@@ -30089,7 +30113,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -30136,12 +30166,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -30283,7 +30308,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -30330,12 +30361,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -30709,7 +30735,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -30728,12 +30760,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -30925,7 +30952,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -30944,12 +30977,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -31667,7 +31695,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -31686,12 +31720,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -31905,7 +31934,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -31924,12 +31959,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -32215,7 +32245,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -32234,12 +32270,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -32460,7 +32491,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -32479,12 +32516,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -32958,7 +32990,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -33005,12 +33043,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -33276,7 +33309,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -33323,12 +33362,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -33498,7 +33532,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -33545,12 +33585,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -34141,7 +34176,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -34160,12 +34201,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -34382,7 +34418,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -34401,12 +34443,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -36045,6 +36082,9 @@ fragment PluginFields on Plugin {
 	tasks {
 		name
 		description
+		plugin {
+			... PluginRef
+		}
 	}
 	hooks {
 		name
@@ -36116,6 +36156,9 @@ fragment PluginFields on Plugin {
 	tasks {
 		name
 		description
+		plugin {
+			... PluginRef
+		}
 	}
 	hooks {
 		name
@@ -36926,7 +36969,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -36945,12 +36994,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -37689,7 +37733,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -37708,12 +37758,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -38097,7 +38142,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -38116,12 +38167,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -38333,7 +38379,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -38352,12 +38404,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id
@@ -38601,7 +38648,13 @@ fragment FolderFields on Folder {
 		updated_at
 	}
 	zip_file {
-		... BasicFileFields
+		id
+		path
+		basename
+		mod_time
+		size
+		created_at
+		updated_at
 	}
 	sub_folders {
 		id
@@ -38620,12 +38673,7 @@ fragment BasicFileFields on BasicFile {
 	path
 	basename
 	parent_folder {
-		id
-		path
-		basename
-		mod_time
-		created_at
-		updated_at
+		... FolderFields
 	}
 	zip_file {
 		id

@@ -101,10 +101,19 @@ func FieldsName(t string) string { return t + "Fields" }
 // resolve to Ref (B2: cyclic edges stay ref-only); the operation layer spreads
 // the full <E>Fields at an operation's payload root.
 type FragmentSet struct {
-	schema   *ast.Schema
-	bodies   map[string]string // fragment name -> "fragment ... { ... }\n"
-	building map[string]bool   // Fields fragments currently on the DFS path
-	path     *pathNamedRecorder
+	schema *ast.Schema
+	bodies map[string]string // fragment name -> "fragment ... { ... }\n"
+	// building tracks the fragment-construction DFS path (set only by
+	// ensureFields) so value-type cycles like Folder<->BasicFile terminate. It
+	// persists across nested ensureFields calls.
+	building map[string]bool
+	// onPath tracks the operation-render and mixed-wrapper-inline path. It is
+	// scoped to inline rendering and deliberately cleared while a canonical
+	// fragment is built (see ensureFields), so a lazily-built <T>Fields body is
+	// context-free: which operation first triggers its construction cannot change
+	// its shape.
+	onPath map[string]bool
+	path   *pathNamedRecorder
 }
 
 type pathNamedRecorder struct {
@@ -118,6 +127,7 @@ func newFragmentSet(s *ast.Schema) *FragmentSet {
 		schema:   s,
 		bodies:   map[string]string{},
 		building: map[string]bool{},
+		onPath:   map[string]bool{},
 		path:     &pathNamedRecorder{types: map[string]bool{}},
 	}
 }
@@ -197,10 +207,18 @@ func (fs *FragmentSet) ensureFields(def *ast.Definition) string {
 		return name // cycle; caller terminated the edge
 	}
 	fs.building[def.Name] = true
+	// A canonical fragment must be byte-identical regardless of which operation
+	// first triggers its construction, so build it with the inline-render path
+	// cleared. Without this, a root field's result-wrapper flag (or a mixed
+	// wrapper being inlined above) leaks in and truncates a valid edge — e.g.
+	// PluginFields.tasks.plugin is dropped when pluginTasks roots before plugins.
+	savedOnPath := fs.onPath
+	fs.onPath = map[string]bool{}
 	var b strings.Builder
 	fmt.Fprintf(&b, "fragment %s on %s {\n", name, def.Name)
 	fs.writeSelection(&b, def, "  ", false)
 	b.WriteString("}\n")
+	fs.onPath = savedOnPath
 	delete(fs.building, def.Name)
 	fs.bodies[name] = b.String()
 	return name
@@ -243,24 +261,26 @@ func (fs *FragmentSet) writeObjectEdge(b *strings.Builder, f *ast.FieldDefinitio
 		} else {
 			writeSpread(b, f.Name, fs.ensureRef(t), indent)
 		}
-	case fs.building[t.Name]:
-		// The walk revisited a type already on the path (e.g. Folder ->
-		// parent_folder -> Folder, or a self-referential wrapper like Package):
-		// terminate with a scalars-only inline selection so the graph stays
-		// finite and acyclic.
+	case fs.building[t.Name] || fs.onPath[t.Name]:
+		// The walk revisited a type already on the path: a value-type fragment
+		// cycle (Folder -> parent_folder -> Folder, tracked in building) or a
+		// self-referential inline render (a result-wrapper like Package, or a
+		// recursive mixed wrapper, tracked in onPath). Terminate with a
+		// scalars-only inline selection so the graph stays finite and acyclic.
 		fs.path.types[t.Name] = true
 		writeInline(b, f.Name, indent, func(inner string) {
 			fs.writeScalarsOnly(b, t, inner)
 		})
 	case isMixedWrapper(fs.schema, t):
-		// Junction wrapper: inline (path-named), tracking it on the path so a
-		// recursive wrapper terminates above.
+		// Junction wrapper: inline (path-named), tracking it on the inline-render
+		// path so a recursive wrapper terminates above. onPath (not building) so
+		// this does not leak into a canonical fragment built underneath.
 		fs.path.types[t.Name] = true
-		fs.building[t.Name] = true
+		fs.onPath[t.Name] = true
 		writeInline(b, f.Name, indent, func(inner string) {
 			fs.writeSelection(b, t, inner, false)
 		})
-		delete(fs.building, t.Name)
+		delete(fs.onPath, t.Name)
 	default:
 		writeSpread(b, f.Name, fs.ensureFields(t), indent)
 	}

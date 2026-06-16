@@ -137,11 +137,13 @@ func (fs *FragmentSet) renderRootField(b *strings.Builder, f *ast.FieldDefinitio
 	default:
 		// Result-wrapper container: expand inline with entity edges full (the
 		// query's whole point), nested entities still terminating at Refs. Track
-		// the container on the path so a self-referential field terminates.
-		fs.building[def.Name] = true
+		// the container on the inline-render path (onPath, not building) so a
+		// self-referential field terminates without leaking into the canonical
+		// fragments built underneath.
+		fs.onPath[def.Name] = true
 		fmt.Fprintf(b, "%s%s {\n", indent, call)
 		fs.writeSelection(b, def, indent+"  ", true)
 		fmt.Fprintf(b, "%s}\n", indent)
-		delete(fs.building, def.Name)
+		delete(fs.onPath, def.Name)
 	}
 }

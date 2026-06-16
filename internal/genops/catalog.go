@@ -100,10 +100,13 @@ func BuildCatalog(s *ast.Schema, ov *Overlay, schemaVersion string) (*Catalog, e
 				Deprecated:   DeprecationReason(f),
 				ExitCodes:    exitCodes(s, f, isDestructive, isJob),
 			}
-			// Seed reachability from the operation's NON-deprecated arguments;
-			// the operation surface is generated without deprecated args, so the
-			// $defs closure tracks that surface.
-			for _, a := range nonDeprecatedArgs(f) {
+			// Seed reachability from the operation's FULL argument list,
+			// deprecated args included: argDocs documents every argument (with a
+			// deprecation note), so $defs must resolve every type those args name,
+			// even one referenced only by a deprecated arg (e.g. PluginArgInput via
+			// runPluginTask.args). The set-membership guard makes the closure
+			// terminate on mutual recursion.
+			for _, a := range f.Arguments {
 				reach.add(BaseTypeName(a.Type))
 			}
 		}
@@ -237,7 +240,15 @@ func canMiss(s *ast.Schema, f *ast.FieldDefinition) bool {
 		return false
 	}
 	def := s.Types[BaseTypeName(f.Type)]
-	return def != nil && def.Kind == ast.Object
+	if def == nil {
+		return false
+	}
+	switch def.Kind {
+	case ast.Object, ast.Interface, ast.Union:
+		return true
+	default:
+		return false
+	}
 }
 
 // defaultString renders a default value via ast.Value.String(), or "" if none.

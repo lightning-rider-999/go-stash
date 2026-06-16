@@ -4081,7 +4081,8 @@
         "auth",
         "transport",
         "validation",
-        "server-fault"
+        "server-fault",
+        "not-found"
       ]
     },
     "SetDefaultFilter": {
@@ -9776,6 +9777,56 @@
         {
           "name": "distance",
           "type": "Int",
+          "required": false
+        }
+      ]
+    },
+    "PluginArgInput": {
+      "kind": "input",
+      "fields": [
+        {
+          "name": "key",
+          "type": "String!",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "PluginValueInput",
+          "required": false
+        }
+      ]
+    },
+    "PluginValueInput": {
+      "kind": "input",
+      "fields": [
+        {
+          "name": "str",
+          "type": "String",
+          "required": false
+        },
+        {
+          "name": "i",
+          "type": "Int",
+          "required": false
+        },
+        {
+          "name": "b",
+          "type": "Boolean",
+          "required": false
+        },
+        {
+          "name": "f",
+          "type": "Float",
+          "required": false
+        },
+        {
+          "name": "o",
+          "type": "[PluginArgInput!]",
+          "required": false
+        },
+        {
+          "name": "a",
+          "type": "[PluginValueInput!]",
           "required": false
         }
       ]

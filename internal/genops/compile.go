@@ -13,10 +13,15 @@ type Compiled struct {
 }
 
 // Compile loads the vendored SDL and curated overlay and produces the complete
-// generated surface. Fragments are built lazily while rendering operations, so
-// only fragments an operation actually spreads are emitted — genqlient rejects
-// unused fragments, and the full type universe is far larger than the reachable
-// set.
+// generated surface.
+//
+// The canonical fragment universe is built first, in sorted type order, so a
+// fragment's shape never depends on which operation first needs it (a lazy,
+// operation-driven build can break a value-type cycle like Folder<->BasicFile
+// the other way, or leak result-wrapper path state into a fragment). Operations
+// then spread those pre-built fragments, and only the fragments actually reached
+// from an operation are emitted — genqlient rejects unused fragments, and the
+// type universe is far larger than the reachable set.
 func Compile(schemaDir, overlayPath, schemaVersion string) (*Compiled, error) {
 	s, err := LoadSchema(schemaDir)
 	if err != nil {
@@ -30,14 +35,14 @@ func Compile(schemaDir, overlayPath, schemaVersion string) (*Compiled, error) {
 		return nil, err
 	}
 
-	fs := newFragmentSet(s)
+	fs := BuildFragments(s)
 	ops, err := BuildOperations(s, fs)
 	if err != nil {
 		return nil, err
 	}
 
 	var frag strings.Builder
-	for _, name := range fs.Names() {
+	for _, name := range reachableFragments(fs, ops) {
 		body, _ := fs.Fragment(name)
 		frag.WriteString(body)
 		frag.WriteByte('\n')

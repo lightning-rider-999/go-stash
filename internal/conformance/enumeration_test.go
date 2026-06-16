@@ -55,7 +55,7 @@ func TestSDLInputEnumEnumeration(t *testing.T) {
 	// entries that are unreachable from any operation argument.
 	for name := range f.catalog.Defs {
 		if !want[name] {
-			t.Errorf("catalog $defs has %q but it is not reachable from any non-deprecated operation argument", name)
+			t.Errorf("catalog $defs has %q but it is not reachable from any operation argument", name)
 		}
 	}
 }
@@ -64,16 +64,15 @@ func TestSDLInputEnumEnumeration(t *testing.T) {
 // from the operations' input surface. It mirrors BuildCatalog's reachability
 // rule exactly, so the two derivations cross-check:
 //
-//   - The closure is SEEDED from each root field's NON-deprecated arguments —
-//     the generated operation surface omits deprecated arguments, so types
-//     reachable only through one are not documented.
+//   - The closure is SEEDED from each root field's FULL argument list,
+//     deprecated arguments included — the catalog's argDocs document every
+//     argument (with a deprecation note), so $defs must resolve every type an
+//     argument names, even one referenced only by a deprecated argument (e.g.
+//     PluginArgInput via runPluginTask.args). Seeding from non-deprecated args
+//     alone would leave that a dangling $defs reference.
 //   - The closure then RECURSES through ALL input-object fields, deprecated
 //     included — a deprecated input field's type is still part of that input's
-//     wire shape (e.g. SceneMovieInput, reachable only via the deprecated
-//     SceneUpdateInput.movies, and StashIDCriterionInput via filter inputs).
-//
-// Treating those two filters differently is deliberate; collapsing them is the
-// bug this gate would otherwise hide.
+//     wire shape (e.g. SceneMovieInput via SceneUpdateInput.movies).
 func reachableInputEnums(s *ast.Schema) map[string]bool {
 	seen := make(map[string]bool)
 
@@ -108,9 +107,8 @@ func reachableInputEnums(s *ast.Schema) map[string]bool {
 				continue
 			}
 			for _, arg := range field.Arguments {
-				if argDeprecated(arg) {
-					continue // operation surface drops deprecated args.
-				}
+				// Full argument list, deprecated included: the catalog documents
+				// and resolves every argument's type.
 				visit(genops.BaseTypeName(arg.Type))
 			}
 		}
@@ -121,9 +119,4 @@ func reachableInputEnums(s *ast.Schema) map[string]bool {
 // isIntrospection reports whether a field is a GraphQL introspection meta-field.
 func isIntrospection(name string) bool {
 	return name == "__schema" || name == "__type"
-}
-
-// argDeprecated reports whether an argument carries the @deprecated directive.
-func argDeprecated(arg *ast.ArgumentDefinition) bool {
-	return arg.Directives.ForName("deprecated") != nil
 }
