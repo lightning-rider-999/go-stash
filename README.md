@@ -19,19 +19,47 @@ server upgrade that drifts a field is a red build rather than a silent nil.
 
 ## Install
 
-Build the CLI from a checkout:
-
-```sh
-go build -o bin/stash ./cmd/stash
-```
-
-Or install it directly:
+**With Go** (the recommended path for a Go CLI):
 
 ```sh
 go install github.com/lightning-rider-999/go-stashapp/cmd/stash@latest
 ```
 
-Add the library to a project:
+**Linux/macOS without Go** — download and install a prebuilt binary. The
+installer detects your OS/arch, verifies the release's sha256 checksum, and
+installs to a directory on your PATH:
+
+```sh
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | sh
+```
+
+Override the target directory or pin a version with environment variables:
+
+```sh
+# Install into ~/.local/bin instead of the default (/usr/local/bin):
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | INSTALL_DIR="$HOME/.local/bin" sh
+
+# Pin a specific release tag instead of the latest:
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | VERSION=v1.2.3 sh
+```
+
+**Manual** — download the archive for your platform from the
+[Releases page](https://github.com/lightning-rider-999/go-stashapp/releases),
+verify it against `checksums.txt`, then extract the `stash` binary onto your
+PATH:
+
+```sh
+tar -xzf stash_<version>_<os>_<arch>.tar.gz
+install -m 0755 stash /usr/local/bin/stash
+```
+
+**From a checkout:**
+
+```sh
+go build -o bin/stash ./cmd/stash
+```
+
+**As a library** in another project:
 
 ```sh
 go get github.com/lightning-rider-999/go-stashapp/stash
