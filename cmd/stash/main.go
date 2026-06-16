@@ -13,6 +13,17 @@ import (
 	"syscall"
 )
 
+// Build information, injected at release time via -ldflags -X. GoReleaser's
+// default ldflags set main.version, main.commit, and main.date, so these names
+// are part of the release contract (see .goreleaser.yaml). The defaults below
+// are what a plain `go build` (or `go install`) produces, so `stash --version`
+// always reports something coherent even outside the release pipeline.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 // main runs the root command and, on failure, emits the structured error
 // envelope to stderr and exits with the taxonomy's integer for the classified
 // error. See classifyExit and the exit-code table in docs/AGENTS.md.

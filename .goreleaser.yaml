@@ -1,0 +1,98 @@
+# GoReleaser configuration for the `stash` CLI.
+#
+# A pushed `v*` git tag triggers .github/workflows/release.yml, which runs
+# `goreleaser release --clean` to build the cross-platform binaries and publish
+# them on a GitHub Release. Validate locally with `goreleaser check` and dry-run
+# with `goreleaser release --snapshot --clean`.
+#
+# Docs: https://goreleaser.com
+version: 2
+
+project_name: stash
+
+before:
+  hooks:
+    # Keep the module graph tidy and verify deps before a release build.
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: stash
+    main: ./cmd/stash
+    binary: stash
+    # The CLI is pure Go (no sqlite/CGO deps), so a static cross-compile is
+    # correct for every target in the matrix.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Strip DWARF/symbol tables and inject build info into package main. These
+    # -X paths are the release contract with cmd/stash/main.go's version vars.
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    # Pin the binary's build timestamp to the commit time for reproducible
+    # builds (same input tree -> byte-identical output).
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: stash
+    ids:
+      - stash
+    # tar.gz everywhere except Windows, which gets a zip.
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    # Drop chore-noise commits from the release notes; keep feat/fix/etc.
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "^refactor:"
+      - "merge conflict"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  # Publish as a full release (not a draft) so the tag push ships immediately.
+  draft: false
+  # Mark pre-release automatically for tags like v1.2.3-rc1.
+  prerelease: auto
+
+snapshot:
+  # Local `--snapshot` builds get a deterministic, sortable version stamp.
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"

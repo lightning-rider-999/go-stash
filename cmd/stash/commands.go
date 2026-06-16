@@ -65,7 +65,16 @@ func buildRootCommand() *cobra.Command {
 		// as a usage error (exit 2), consistent with the resource groups.
 		Args: cobra.ArbitraryArgs,
 		RunE: helpOrUnknown,
+		// Version is the injected binary version (main.version), which makes cobra
+		// register the built-in --version flag. The template widens the output to
+		// the commit and build date so a bug report pins an exact build. This is
+		// the CLI binary's own version, distinct from the `stash misc version`
+		// GraphQL op, which reports the connected Stash server's version.
+		Version: version,
 	}
+	root.SetVersionTemplate(
+		"stash {{.Version}} (commit " + commit + ", built " + date + ")\n",
+	)
 	wrapCobraUsageErrors(root)
 
 	root.PersistentFlags().String("url", "", "Stash base URL (default $STASHAPP_URL)")

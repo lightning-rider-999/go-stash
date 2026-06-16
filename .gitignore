@@ -1,6 +1,9 @@
 # Build output (Taskfile `build` target)
 /bin/
 
+# GoReleaser output (release + snapshot builds)
+/dist/
+
 # IDE / editor
 /.idea/
 *.swp

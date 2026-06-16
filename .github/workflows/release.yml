@@ -1,0 +1,40 @@
+# Release pipeline: a pushed `v*` tag builds the cross-platform `stash` binaries
+# with GoReleaser and publishes them on a GitHub Release in this repo. The
+# release is created with the workflow-scoped GITHUB_TOKEN, so no external
+# credentials are needed. Build/config live in .goreleaser.yaml.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  # Required for GoReleaser to create the GitHub Release and upload assets.
+  contents: write
+
+jobs:
+  goreleaser:
+    name: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # GoReleaser needs the full history (and the pushed tag) to build the
+          # changelog and resolve the version.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          # Reads the `go 1.26.x` directive; GOTOOLCHAIN=auto fetches it if the
+          # runner ships an older toolchain.
+          go-version-file: go.mod
+          cache: true
+
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
