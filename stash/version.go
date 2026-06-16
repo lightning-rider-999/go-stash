@@ -28,8 +28,14 @@ func (c *Client) Version(ctx context.Context) (*VersionInfo, error) {
 	if resp.Version == nil {
 		return nil, fmt.Errorf("stash: server returned a null version")
 	}
+	// Version.version is nullable in the SDL (the release tag may be absent on a
+	// dev build); hash and build_time are non-null.
+	version := ""
+	if resp.Version.Version != nil {
+		version = *resp.Version.Version
+	}
 	return &VersionInfo{
-		Version:   resp.Version.Version,
+		Version:   version,
 		Hash:      resp.Version.Hash,
 		BuildTime: resp.Version.Build_time,
 	}, nil

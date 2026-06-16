@@ -54,11 +54,13 @@ type jobUpdate struct {
 }
 
 // jobOutcome is the resolved end state of a tracked job: a terminal status and,
-// for a failure, the job's reported error. It is the value the state machine
-// converges on before mapping to an exit code.
+// for a failure, the job's reported error. jobErr is a pointer because the Job
+// SDL types error as a nullable String: a job with no error is genuinely nil,
+// not the empty string. It is the value the state machine converges on before
+// mapping to an exit code.
 type jobOutcome struct {
 	status stash.JobStatus
-	jobErr string
+	jobErr *string
 }
 
 // jobTracker runs the --wait state machine for one job. Every external
@@ -310,9 +312,9 @@ func outcomeToExit(jobID string, o jobOutcome) error {
 	case term && success:
 		return nil
 	case term:
-		msg := o.jobErr
-		if msg == "" {
-			msg = fmt.Sprintf("job %s ended %s", jobID, o.status)
+		msg := fmt.Sprintf("job %s ended %s", jobID, o.status)
+		if o.jobErr != nil && *o.jobErr != "" {
+			msg = *o.jobErr
 		}
 		return newExitCodeError(ExitJobFailed,
 			fmt.Errorf("job %s %s: %s", jobID, o.status, msg))
@@ -326,14 +328,18 @@ func outcomeToExit(jobID string, o jobOutcome) error {
 // an agent can watch the job advance. Progress goes to the tracker's writer
 // (stderr in production) to keep stdout free of interleaving; the final outcome
 // is the exit code and the error envelope. A nil writer disables progress.
-func (jt *jobTracker) emit(jobID string, status stash.JobStatus, progress float64) {
+//
+// progress is a pointer because the Job SDL types progress as a nullable Float:
+// a job that has not reported progress yet marshals to JSON null, not a
+// fabricated 0.
+func (jt *jobTracker) emit(jobID string, status stash.JobStatus, progress *float64) {
 	if jt.progress == nil {
 		return
 	}
 	line := struct {
-		Job      string  `json:"job"`
-		Status   string  `json:"status"`
-		Progress float64 `json:"progress"`
+		Job      string   `json:"job"`
+		Status   string   `json:"status"`
+		Progress *float64 `json:"progress"`
 	}{Job: jobID, Status: string(status), Progress: progress}
 	b, err := json.Marshal(line)
 	if err != nil {

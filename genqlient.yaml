@@ -16,6 +16,13 @@ package: stash
 # types, and it makes nullable entity edges pointer-canonical (e.g. *StudioRef).
 use_struct_references: true
 
+# Nullable fields become pointers with omitempty. On the input side this is a
+# correctness requirement: a value-typed optional field is always marshalled, so
+# an unset enum is sent as "" and the server rejects it (" is not a valid
+# SortDirectionEnum"). Pointers let an unset optional field be omitted from the
+# request. On the output side it distinguishes a JSON null from a zero value.
+optional: pointer
+
 bindings:
   Time:
     type: time.Time

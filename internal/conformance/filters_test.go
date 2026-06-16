@@ -7,6 +7,12 @@ import (
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
+// ptr returns a pointer to v. With optional: pointer in genqlient.yaml, every
+// GraphQL-nullable input field (here SceneFilterType.Organized and
+// HierarchicalMultiCriterionInput.Depth) is a Go pointer, so a literal is taken
+// by address to set one.
+func ptr[T any](v T) *T { return &v }
+
 // TestRecursiveFilterRoundTrip is gate 5: the self-referential filter input must
 // survive a JSON round-trip with its nesting and depth intact. SceneFilterType
 // carries AND/OR/NOT pointers to itself; HierarchicalMultiCriterionInput carries
@@ -20,11 +26,11 @@ func TestRecursiveFilterRoundTrip(t *testing.T) {
 			Modifier: stash.CriterionModifierEquals,
 		},
 		AND: &stash.SceneFilterType{
-			Organized: true,
+			Organized: ptr(true),
 			Tags: &stash.HierarchicalMultiCriterionInput{
 				Value:    []string{"7", "9"},
 				Modifier: stash.CriterionModifierIncludes,
-				Depth:    3,
+				Depth:    ptr(3),
 			},
 		},
 		OR: &stash.SceneFilterType{
@@ -56,14 +62,20 @@ func TestRecursiveFilterRoundTrip(t *testing.T) {
 	if out.AND == nil {
 		t.Fatal("AND branch lost in round-trip")
 	}
-	if !out.AND.Organized {
+	if out.AND.Organized == nil {
+		t.Fatal("AND.Organized lost in round-trip (nil after unmarshal)")
+	}
+	if !*out.AND.Organized {
 		t.Error("AND.Organized lost in round-trip")
 	}
 	if out.AND.Tags == nil {
 		t.Fatal("AND.Tags (HierarchicalMultiCriterionInput) lost in round-trip")
 	}
-	if out.AND.Tags.Depth != 3 {
-		t.Errorf("AND.Tags.Depth = %d, want 3 (hierarchical depth did not survive)", out.AND.Tags.Depth)
+	if out.AND.Tags.Depth == nil {
+		t.Fatal("AND.Tags.Depth lost in round-trip (nil after unmarshal)")
+	}
+	if *out.AND.Tags.Depth != 3 {
+		t.Errorf("AND.Tags.Depth = %d, want 3 (hierarchical depth did not survive)", *out.AND.Tags.Depth)
 	}
 	if got, want := out.AND.Tags.Value, []string{"7", "9"}; !equalStrings(got, want) {
 		t.Errorf("AND.Tags.Value = %v, want %v", got, want)

@@ -13,6 +13,11 @@ import (
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
+// ptr returns a pointer to v. The generated input types make every
+// GraphQL-nullable field a pointer, so a literal value (a sort key, a page size,
+// a scene id) is taken by address to set one.
+func ptr[T any](v T) *T { return &v }
+
 // ExampleNewClient builds a client from explicit options. The URL is normalised
 // to address the GraphQL endpoint, so passing the base UI URL is enough.
 func ExampleNewClient() {
@@ -60,8 +65,8 @@ func ExampleClient_GraphQL() {
 	// scene-filter arguments are the operation's own typed inputs.
 	perPage := 25
 	resp, err := stash.FindScenes(ctx, c.GraphQL(), nil, nil, &stash.FindFilterType{
-		Q:        "sunset",
-		Per_page: perPage,
+		Q:        ptr("sunset"),
+		Per_page: ptr(perPage),
 	})
 	if err != nil {
 		// See ExampleNewErrorEnvelope for classifying the error.
@@ -120,7 +125,7 @@ func ExampleBatch() {
 	ids := []string{"1", "2", "3", "4", "5"}
 
 	err = stash.Batch(context.Background(), 3, ids, func(ctx context.Context, id string) error {
-		_, opErr := stash.FindScene(ctx, c.GraphQL(), id, "")
+		_, opErr := stash.FindScene(ctx, c.GraphQL(), ptr(id), nil)
 		return opErr
 	})
 	if err != nil {
@@ -177,10 +182,16 @@ func ExampleSubscribe() {
 				return
 			}
 			if ev.Data != nil && ev.Data.JobsSubscribe.Job != nil {
+				// Progress is a nullable Float in the Job SDL; a job that has not
+				// reported it yet leaves the pointer nil, shown here as 0.
+				var progress float64
+				if p := ev.Data.JobsSubscribe.Job.Progress; p != nil {
+					progress = *p
+				}
 				fmt.Printf("job %s: %s (%.0f%%)\n",
 					ev.Data.JobsSubscribe.Job.Id,
 					ev.Data.JobsSubscribe.Type,
-					ev.Data.JobsSubscribe.Job.Progress)
+					progress)
 			}
 		case err := <-errs:
 			if err != nil {

@@ -13,10 +13,20 @@ import (
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
+// errPtr maps a job-error string to the nullable *string the generated types
+// now use: an empty string is no error (nil), matching the Job SDL's nullable
+// error field, and a non-empty string is a pointer to it.
+func errPtr(jobErr string) *string {
+	if jobErr == "" {
+		return nil
+	}
+	return &jobErr
+}
+
 // jobFixture builds a *stash.FindJobFindJob with just the fields the tracker
 // reads, so a test can hand the tracker canned snapshots.
 func jobFixture(id string, status stash.JobStatus, jobErr string) *stash.FindJobFindJob {
-	return &stash.FindJobFindJob{Id: id, Status: status, Error: jobErr}
+	return &stash.FindJobFindJob{Id: id, Status: status, Error: errPtr(jobErr)}
 }
 
 // fakeFindJob returns a findJob function that yields the queued snapshots in
@@ -46,7 +56,7 @@ func fakeFindJob(steps ...findJobStep) func(context.Context, string) (*stash.Fin
 
 // updateOf builds a jobUpdate carrying a status transition for the given job.
 func updateOf(id string, t stash.JobStatusUpdateType, status stash.JobStatus, jobErr string) jobUpdate {
-	return jobUpdate{Type: t, Job: &stash.JobFields{Id: id, Status: status, Error: jobErr}}
+	return jobUpdate{Type: t, Job: &stash.JobFields{Id: id, Status: status, Error: errPtr(jobErr)}}
 }
 
 // scriptedSource returns a subscribe function whose nth call drains the nth

@@ -7,3 +7,7 @@
 
 # Local environment
 .env
+
+# JetBrains Qodana (IDE-generated)
+/qodana.yaml
+.qodana/

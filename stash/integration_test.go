@@ -79,7 +79,10 @@ func TestLiveFindScenesSmoke(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	filter := &stash.FindFilterType{Per_page: 3}
+	// Only per_page is set; every other nullable field stays a nil pointer and
+	// marshals to JSON null. In particular Direction is null, not "" — the live
+	// server rejects an empty SortDirectionEnum, which optional: pointer fixes.
+	filter := &stash.FindFilterType{Per_page: ptr(3)}
 	resp, err := stash.FindScenes(ctx, c.GraphQL(), nil, nil, filter)
 	if err != nil {
 		t.Fatalf("FindScenes against live instance: %v", err)
