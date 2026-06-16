@@ -52,6 +52,10 @@ func (c *Client) ImportObjects(ctx context.Context, input ImportObjectsInput) (j
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint(), body)
 	if err != nil {
+		// Nothing will read or close the pipe on this path, so unblock and stop
+		// the producer goroutine before returning; otherwise it leaks, parked on
+		// its first write into the pipe.
+		_ = body.CloseWithError(err)
 		return "", &TransportError{err: fmt.Errorf("stash: building import request: %w", err)}
 	}
 	req.Header.Set("Content-Type", contentType)
@@ -71,7 +75,12 @@ func (c *Client) ImportObjects(ctx context.Context, input ImportObjectsInput) (j
 // io.Pipe so the file content is never fully buffered. A read failure on the
 // file body is propagated to the HTTP client through the pipe, so the request
 // fails rather than silently sending a truncated upload.
-func (c *Client) buildImportBody(ctx context.Context, input ImportObjectsInput) (io.Reader, string) {
+//
+// The reader is returned as the concrete [*io.PipeReader] so a caller that never
+// hands it to http.Client.Do (for example when request construction fails) can
+// CloseWithError to unblock and stop the producer goroutine; http.Client.Do
+// itself drains and closes the body on every path it takes.
+func (c *Client) buildImportBody(ctx context.Context, input ImportObjectsInput) (*io.PipeReader, string) {
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 
@@ -190,6 +199,12 @@ func decodeImportResponse(resp *http.Response) (string, error) {
 	}
 	if len(parsed.Errors) > 0 {
 		return "", classify(parsed.Errors)
+	}
+	if parsed.Data.ImportObjects == "" {
+		// A 200 that decodes with neither errors nor a job id is a malformed
+		// success; report it rather than returning an empty id as if it worked,
+		// mirroring Version's null-payload guard.
+		return "", &TransportError{StatusCode: resp.StatusCode, err: fmt.Errorf("stash: server returned no import job id")}
 	}
 	return parsed.Data.ImportObjects, nil
 }

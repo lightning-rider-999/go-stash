@@ -28,6 +28,22 @@ const (
 	defaultBackoffMax  = 30 * time.Second
 )
 
+// writeWait bounds every underlying WriteMessage with a deadline. gorilla's
+// default write deadline is zero (never), so on a half-open TCP connection the
+// kernel send buffer fills and WriteMessage blocks forever, wedging the single
+// writer goroutine. A bounded deadline turns that into an error the loop can
+// surface, keeping the writer responsive to its stop signal.
+const writeWait = 10 * time.Second
+
+// wsConn is the write side of a WebSocket connection with a settable deadline.
+// genqlient's [graphql.WSConn] omits SetWriteDeadline, but the real gorilla
+// *websocket.Conn provides it, so the wrapper holds this richer interface to
+// bound each write.
+type wsConn interface {
+	graphql.WSConn
+	SetWriteDeadline(time.Time) error
+}
+
 // serialConn wraps a [graphql.WSConn] (in practice a gorilla *websocket.Conn) to
 // satisfy two requirements gorilla imposes and genqlient does not handle:
 //
@@ -44,7 +60,7 @@ const (
 // ReadMessage and Close delegate to the wrapped connection; Close also stops the
 // writer goroutine and the keepalive ticker.
 type serialConn struct {
-	conn graphql.WSConn
+	conn wsConn
 
 	writes   chan writeRequest
 	stop     chan struct{}
@@ -71,7 +87,7 @@ var errConnClosed = errors.New("stash: websocket connection closed")
 // fires every interval. A non-positive interval disables keepalive. newTicker
 // may be nil, in which case time.NewTicker is used; a test can inject a ticker
 // to drive the keepalive timing deterministically.
-func newSerialConn(conn graphql.WSConn, interval time.Duration, newTicker func(time.Duration) *time.Ticker) *serialConn {
+func newSerialConn(conn wsConn, interval time.Duration, newTicker func(time.Duration) *time.Ticker) *serialConn {
 	if newTicker == nil {
 		newTicker = time.NewTicker
 	}
@@ -105,15 +121,28 @@ func (sc *serialConn) writeLoop() {
 		case <-sc.stop:
 			return
 		case req := <-sc.writes:
-			req.result <- sc.conn.WriteMessage(req.msgType, req.data)
+			req.result <- sc.write(req.msgType, req.data)
 		case <-tickC:
 			// A failed keepalive ping is not fatal here: the next ReadMessage
 			// will observe the broken connection and surface the error through
 			// genqlient's errChan. Ignoring it keeps the writer alive to serve
 			// the close frame.
-			_ = sc.conn.WriteMessage(websocket.PingMessage, nil)
+			_ = sc.write(websocket.PingMessage, nil)
 		}
 	}
+}
+
+// write performs one underlying write under a bounded deadline. The deadline
+// caps how long a write can block on a half-open connection, so the writer
+// goroutine stays responsive to stop rather than wedging forever. A
+// SetWriteDeadline failure is surfaced as the write result; if it cannot be
+// set, the write is attempted anyway so behaviour degrades to the prior
+// (unbounded) path rather than dropping the frame silently.
+func (sc *serialConn) write(msgType int, data []byte) error {
+	if err := sc.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		return err
+	}
+	return sc.conn.WriteMessage(msgType, data)
 }
 
 // WriteMessage enqueues a frame for the serialised writer and returns the
@@ -150,11 +179,18 @@ func (sc *serialConn) Close() error {
 
 // wsDialer adapts gorilla/websocket to genqlient's [graphql.Dialer]. Each dial
 // returns a [serialConn] wrapping the gorilla connection, so writes are
-// serialised and keepalive pings are sent on the configured interval.
+// serialised and keepalive pings are sent on the configured interval. It also
+// records the most recently built [serialConn] so a caller can close it
+// directly as a backstop when genqlient's own Close fails to tear it down.
 type wsDialer struct {
 	dialer    *websocket.Dialer
 	interval  time.Duration
 	newTicker func(time.Duration) *time.Ticker
+
+	// last is the serialConn produced by the most recent successful dial. A
+	// genqlient WebSocket client dials exactly once per Start, so after Start
+	// returns this is the connection that client owns.
+	last *serialConn
 }
 
 // DialContext dials urlStr with the graphql-transport-ws subprotocol and wraps
@@ -168,7 +204,9 @@ func (d *wsDialer) DialContext(ctx context.Context, urlStr string, requestHeader
 	if err != nil {
 		return nil, fmt.Errorf("stash: dialing websocket %q: %w", urlStr, err)
 	}
-	return newSerialConn(conn, d.interval, d.newTicker), nil
+	sc := newSerialConn(conn, d.interval, d.newTicker)
+	d.last = sc
+	return sc, nil
 }
 
 // Subscriptions opens a subscription connection to the server and returns a
@@ -184,7 +222,7 @@ func (d *wsDialer) DialContext(ctx context.Context, urlStr string, requestHeader
 // on a mid-stream drop, prefer the [Subscribe] helper, which manages the client
 // lifecycle itself.
 func (c *Client) Subscriptions(ctx context.Context) (graphql.WebSocketClient, <-chan error, error) {
-	wsClient := c.newSubscriptionClient(defaultKeepaliveInterval, nil)
+	wsClient, _ := c.newSubscriptionClient(defaultKeepaliveInterval, nil)
 	errChan, err := wsClient.Start(ctx)
 	if err != nil {
 		return nil, nil, classifyWS(err)
@@ -196,7 +234,12 @@ func (c *Client) Subscriptions(ctx context.Context) (graphql.WebSocketClient, <-
 // gorilla with the serialised writer and keepalive. The ApiKey, when set, is
 // sent in the connection_init payload under the "ApiKey" key, matching the HTTP
 // header name Stash also accepts. newTicker may be nil for the real clock.
-func (c *Client) newSubscriptionClient(interval time.Duration, newTicker func(time.Duration) *time.Ticker) graphql.WebSocketClient {
+//
+// The dialer is returned alongside the client so a caller that manages the
+// client lifecycle ([Subscribe] via runSubscription) can reach the serialConn
+// the dialer builds and close it directly as a backstop. Callers that hand the
+// client to an external owner can ignore it.
+func (c *Client) newSubscriptionClient(interval time.Duration, newTicker func(time.Duration) *time.Ticker) (graphql.WebSocketClient, *wsDialer) {
 	dialer := &wsDialer{
 		dialer:    websocket.DefaultDialer,
 		interval:  interval,
@@ -207,7 +250,7 @@ func (c *Client) newSubscriptionClient(interval time.Duration, newTicker func(ti
 	if key := c.APIKey(); key != "" {
 		opts = append(opts, graphql.WithConnectionParams(map[string]interface{}{"ApiKey": key}))
 	}
-	return graphql.NewClientUsingWebSocket(c.WebSocketURL(), dialer, opts...)
+	return graphql.NewClientUsingWebSocket(c.WebSocketURL(), dialer, opts...), dialer
 }
 
 // classifyWS maps a WebSocket handshake or connection error into the package
@@ -354,12 +397,12 @@ func runSubscription[T any](
 	o subOptions,
 	out chan<- T,
 ) (delivered bool, err error) {
-	wsClient := c.newSubscriptionClient(o.interval, o.newTicker)
+	wsClient, dialer := c.newSubscriptionClient(o.interval, o.newTicker)
 	errChan, startErr := wsClient.Start(ctx)
 	if startErr != nil {
 		return false, classifyWS(startErr)
 	}
-	defer func() { _ = wsClient.Close() }()
+	defer cleanupSubscription(wsClient, dialer.last, errChan)
 
 	stream, subErr := subscribe(ctx, wsClient)
 	if subErr != nil {
@@ -388,6 +431,48 @@ func runSubscription[T any](
 				return delivered, ctx.Err()
 			}
 		}
+	}
+}
+
+// cleanupSubscription tears down one subscription connection, defending against
+// two genqlient v0.8.1 behaviours observed under a dead or half-open socket:
+//
+//   - genqlient's Close sends the close frame first and, on a write error,
+//     returns early without calling the inner connection's Close. That inner
+//     Close is the sole path that stops the serialConn writer goroutine and
+//     keepalive ticker, so a failed close frame would otherwise leak both on
+//     every reconnect. sc.Close is idempotent and always run as a backstop.
+//   - genqlient's read goroutine reports a transport error by sending on an
+//     unbuffered errChan while holding genqlient's mutex. If this select returns
+//     via ctx/stream-close in the same tick that a read error fires, that send
+//     blocks forever and genqlient's Close deadlocks acquiring the same mutex. A
+//     concurrent drainer lets the pending send complete so Close can proceed.
+//
+// sc may be nil only if no connection was ever dialed, in which case there is no
+// serialConn to back-stop; Start having returned without error guarantees a dial
+// happened, so in practice sc is non-nil here.
+func cleanupSubscription(wsClient graphql.WebSocketClient, sc *serialConn, errChan <-chan error) {
+	// Drain errChan concurrently so a handleErr send blocked under genqlient's
+	// mutex can complete, letting Close acquire that mutex. A successful Close
+	// closes errChan, ending the drainer; if the close frame fails, sc.Close
+	// below tears down the conn, the read goroutine returns, and the drainer is
+	// released either way. The bounded wait keeps cleanup from blocking if Close
+	// neither closed errChan nor the read goroutine has yet observed the tear-down.
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		for range errChan {
+		}
+	}()
+
+	_ = wsClient.Close() // best-effort graceful close frame
+	if sc != nil {
+		_ = sc.Close() // idempotent: always stops the writer goroutine and ticker
+	}
+
+	select {
+	case <-drained:
+	case <-time.After(time.Second):
 	}
 }
 

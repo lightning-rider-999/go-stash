@@ -10,8 +10,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // importServer returns a Client pointed at a handler that records the multipart
@@ -257,5 +259,94 @@ func TestImportObjectsBodyReadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "disk gone") {
 		t.Errorf("error %v does not mention the underlying read failure", err)
+	}
+}
+
+// TestImportObjectsRequestBuildFailureReleasesProducer proves Finding D: when
+// http.NewRequestWithContext fails, ImportObjects must close the body pipe so the
+// goroutine streaming the multipart body unblocks and exits rather than leaking.
+//
+// io.Pipe is synchronous: with no consumer, the producer blocks on its very
+// first pipe write (the operations part). The fix's body.CloseWithError makes
+// that pending write return an error, so writeImportParts returns and the
+// goroutine exits. The test confirms the goroutine count returns to the
+// pre-call baseline; without the fix it stays one higher forever.
+func TestImportObjectsRequestBuildFailureReleasesProducer(t *testing.T) {
+	c, err := NewClient(WithURL("http://example.invalid"), WithAPIKey("k"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Force http.NewRequestWithContext to fail: an endpoint with a control
+	// character is rejected with "invalid control character in URL". The field is
+	// unexported, set directly from this in-package test.
+	c.endpoint = "http://example.invalid/\x7f"
+
+	// Settle, then sample the baseline goroutine count just before the call.
+	settle()
+	before := runtime.NumGoroutine()
+
+	_, err = c.ImportObjects(context.Background(), ImportObjectsInput{
+		File:                Upload{Filename: "x.zip", Body: strings.NewReader("payload")},
+		DuplicateBehaviour:  ImportDuplicateEnumIgnore,
+		MissingRefBehaviour: ImportMissingRefEnumIgnore,
+	})
+	if err == nil {
+		t.Fatal("want a request-build error, got nil")
+	}
+	var te *TransportError
+	if !errors.As(err, &te) {
+		t.Fatalf("error %v (%T) does not unwrap to *TransportError", err, err)
+	}
+
+	// The producer goroutine must have exited: the pipe close released its first
+	// write. Poll until the count returns to baseline; a persistent +1 is the leak.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		settle()
+		if runtime.NumGoroutine() <= before {
+			return // producer released and exited
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("goroutine count stayed at %d (baseline %d): the body-writer goroutine leaked",
+				runtime.NumGoroutine(), before)
+		}
+	}
+}
+
+// settle nudges the scheduler so a goroutine that has just been released has a
+// chance to run to completion before the count is sampled.
+func settle() {
+	for i := 0; i < 5; i++ {
+		runtime.Gosched()
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestImportObjectsEmptyJobID proves Finding E: a 200 that decodes with neither
+// errors nor a job id must be a non-nil error, not a silent empty-id success.
+func TestImportObjectsEmptyJobID(t *testing.T) {
+	c := importServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = readMultipart(t, r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":{}}`)
+	})
+
+	id, err := c.ImportObjects(context.Background(), ImportObjectsInput{
+		File:                Upload{Filename: "x.zip", Body: strings.NewReader("data")},
+		DuplicateBehaviour:  ImportDuplicateEnumIgnore,
+		MissingRefBehaviour: ImportMissingRefEnumIgnore,
+	})
+	if err == nil {
+		t.Fatalf("want an error for a 200 with no job id, got id=%q nil error", id)
+	}
+	if id != "" {
+		t.Errorf("job id = %q, want empty on error", id)
+	}
+	var te *TransportError
+	if !errors.As(err, &te) {
+		t.Fatalf("error %v (%T) does not unwrap to *TransportError", err, err)
+	}
+	if !strings.Contains(err.Error(), "no import job id") {
+		t.Errorf("error %v does not mention the missing job id", err)
 	}
 }

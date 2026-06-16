@@ -218,11 +218,12 @@ func TestSubscriptionStreamsAllThreeTypes(t *testing.T) {
 // are recorded (and classified by gorilla message type) so a test can assert
 // keepalive pings and serialisation without any network.
 type fakeConn struct {
-	incoming chan fakeFrame
-	mu       sync.Mutex
-	writes   []fakeFrame
-	closed   bool
-	closeCh  chan struct{}
+	incoming  chan fakeFrame
+	mu        sync.Mutex
+	writes    []fakeFrame
+	closed    bool
+	closeCh   chan struct{}
+	deadlines int
 }
 
 type fakeFrame struct {
@@ -235,6 +236,13 @@ func newFakeConn() *fakeConn {
 		incoming: make(chan fakeFrame, 64),
 		closeCh:  make(chan struct{}),
 	}
+}
+
+func (f *fakeConn) SetWriteDeadline(time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deadlines++
+	return nil
 }
 
 func (f *fakeConn) WriteMessage(messageType int, data []byte) error {
@@ -278,6 +286,12 @@ func (f *fakeConn) pingCount() int {
 		}
 	}
 	return n
+}
+
+func (f *fakeConn) isClosed() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.closed
 }
 
 func (f *fakeConn) writeCount() int {
@@ -524,5 +538,224 @@ func TestSubscriptionStopsOnContextCancel(t *testing.T) {
 		case <-timeout:
 			t.Fatal("Subscribe did not stop on context cancel")
 		}
+	}
+}
+
+// --- Finding A: a write deadline keeps the single writer from wedging forever
+// on a half-open connection.
+
+// blockingConn models a half-open socket: WriteMessage blocks until a write
+// deadline is armed, then returns a timeout error (gorilla's contract: a
+// deadline already in the past aborts the blocked write). Without the deadline
+// the write would block forever and the writer goroutine would never return to
+// honour stop, so Close would hang.
+type blockingConn struct {
+	mu          sync.Mutex
+	deadlineSet bool
+	armed       chan struct{} // closed once a deadline is first armed
+	closeCh     chan struct{}
+}
+
+func newBlockingConn() *blockingConn {
+	return &blockingConn{armed: make(chan struct{}), closeCh: make(chan struct{})}
+}
+
+func (b *blockingConn) SetWriteDeadline(time.Time) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if !b.deadlineSet {
+		b.deadlineSet = true
+		close(b.armed)
+	}
+	return nil
+}
+
+func (b *blockingConn) WriteMessage(int, []byte) error {
+	b.mu.Lock()
+	armed := b.deadlineSet
+	b.mu.Unlock()
+	if armed {
+		// A deadline is in force; the half-open write times out rather than
+		// blocking, exactly as gorilla reports it.
+		return errors.New("i/o timeout")
+	}
+	// No deadline: the kernel send buffer is full and the write blocks until the
+	// connection is torn down. A correct writer must never reach a state where it
+	// is parked here with no deadline ever applied.
+	<-b.closeCh
+	return errors.New("conn closed")
+}
+
+func (b *blockingConn) ReadMessage() (int, []byte, error) {
+	<-b.closeCh
+	return 0, nil, errors.New("conn closed")
+}
+
+func (b *blockingConn) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	select {
+	case <-b.closeCh:
+	default:
+		close(b.closeCh)
+	}
+	return nil
+}
+
+func TestSerialConnWriteDeadlinePreventsWedge(t *testing.T) {
+	bc := newBlockingConn()
+	sc := newSerialConn(bc, time.Hour, nil) // keepalive parked; drive writes ourselves
+
+	// Issue a write. Because writeLoop arms a deadline before each WriteMessage,
+	// the half-open write returns a timeout instead of blocking the writer.
+	werr := make(chan error, 1)
+	go func() { werr <- sc.WriteMessage(websocket.TextMessage, []byte("frame")) }()
+
+	select {
+	case <-bc.armed:
+		// Good: a deadline was set before the write, so the writer cannot wedge.
+	case <-time.After(2 * time.Second):
+		t.Fatal("no write deadline was armed; the writer wrote with an unbounded deadline")
+	}
+
+	select {
+	case err := <-werr:
+		if err == nil {
+			t.Fatal("expected the deadline-bounded write to return an error")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("WriteMessage never returned; the writer wedged despite the deadline")
+	}
+
+	// The decisive property: Close completes (writeLoop honoured stop and exited)
+	// rather than blocking forever on <-sc.done.
+	done := make(chan error, 1)
+	go func() { done <- sc.Close() }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close blocked: the writer goroutine wedged on an unbounded write")
+	}
+}
+
+// --- Finding B: the serialConn writer + ticker are released even when
+// genqlient's graceful Close fails to send the close frame.
+
+// fakeWSClient stands in for genqlient's webSocketClient. Its Close mirrors the
+// v0.8.1 bug: a failed close-frame write returns early without tearing down the
+// inner connection, so the serialConn backstop must do it.
+type fakeWSClient struct {
+	closeErr error
+	errChan  chan error
+}
+
+func (f *fakeWSClient) Start(context.Context) (chan error, error) { return f.errChan, nil }
+
+func (f *fakeWSClient) Close() error {
+	if f.closeErr != nil {
+		// Genqlient returns here on a close-frame write error and never closes
+		// the inner conn or the errChan.
+		return f.closeErr
+	}
+	close(f.errChan)
+	return nil
+}
+
+func (f *fakeWSClient) Subscribe(*graphql.Request, any, graphql.ForwardDataFunction) (string, error) {
+	return "", nil
+}
+func (f *fakeWSClient) Unsubscribe(string) error { return nil }
+
+func TestCleanupSubscriptionBacksStopWhenCloseFails(t *testing.T) {
+	fc := newFakeConn()
+	ticker := time.NewTicker(time.Hour)
+	sc := newSerialConn(fc, time.Hour, func(time.Duration) *time.Ticker { return ticker })
+
+	wsc := &fakeWSClient{closeErr: errors.New("failed to send closure message"), errChan: make(chan error)}
+
+	cleanupSubscription(wsc, sc, wsc.errChan)
+
+	// The backstop must have stopped the writer goroutine: done is closed, so a
+	// further write reports the closed connection.
+	select {
+	case <-sc.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("writeLoop goroutine was not released after cleanup")
+	}
+	if err := sc.WriteMessage(websocket.TextMessage, []byte("x")); err == nil {
+		t.Error("write after cleanup should fail; the writer was not stopped")
+	}
+	if !fc.isClosed() {
+		t.Error("underlying conn was not closed by the backstop")
+	}
+}
+
+// --- Finding C: cleanup does not deadlock when a read-error handleErr send is
+// in flight on the unbuffered errChan as the close path runs.
+
+// lockingWSClient faithfully reproduces genqlient v0.8.1's deadlock shape: a
+// transport read error is reported by handleErr, which holds the client mutex
+// while sending on the unbuffered errChan, and Close must take that same mutex.
+// If the errChan is never drained, handleErr is parked under the lock and Close
+// blocks forever acquiring it.
+type lockingWSClient struct {
+	mu      sync.Mutex
+	errChan chan error
+	closing bool
+}
+
+func (c *lockingWSClient) Start(context.Context) (chan error, error) { return c.errChan, nil }
+
+// handleErr mirrors genqlient: send under the lock on the unbuffered errChan.
+func (c *lockingWSClient) handleErr(err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.closing {
+		c.errChan <- err
+	}
+}
+
+func (c *lockingWSClient) Close() error {
+	// Genqlient's Close on a dead socket: the close-frame write fails first and
+	// it returns early, but it still must take the mutex to do so under the bug's
+	// fixed variant; faithfully, Close contends for the same lock handleErr holds.
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closing = true
+	close(c.errChan)
+	return nil
+}
+
+func (c *lockingWSClient) Subscribe(*graphql.Request, any, graphql.ForwardDataFunction) (string, error) {
+	return "", nil
+}
+func (c *lockingWSClient) Unsubscribe(string) error { return nil }
+
+func TestCleanupSubscriptionDrainsInFlightHandleErr(t *testing.T) {
+	fc := newFakeConn()
+	sc := newSerialConn(fc, time.Hour, nil)
+
+	// errChan is unbuffered, mirroring genqlient.
+	wsc := &lockingWSClient{errChan: make(chan error)}
+
+	// A read error is reported under the lock just as cleanup begins. handleErr
+	// parks on the unbuffered send while holding the mutex; only a drainer can
+	// release it, after which Close can take the mutex.
+	go wsc.handleErr(errors.New("transport read error"))
+
+	// Give handleErr a moment to acquire the lock and park on the send, so the
+	// race the finding describes is actually set up before cleanup runs.
+	time.Sleep(20 * time.Millisecond)
+
+	done := make(chan struct{})
+	go func() {
+		cleanupSubscription(wsc, sc, wsc.errChan)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cleanupSubscription deadlocked: Close could not take the mutex handleErr held")
 	}
 }
