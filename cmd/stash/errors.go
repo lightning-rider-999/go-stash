@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lightning-rider-999/go-stashapp/internal/redact"
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
@@ -184,15 +185,24 @@ func messagesLookValidation(msgs []string) bool {
 // stash.ErrorEnvelope for its fields (message, graphqlErrors, field, retryable)
 // and overrides Code with the taxonomy NAME, so the "code" string and the
 // process exit status name the same classification.
+//
+// The message and every GraphQL error message are run through
+// [redact.APIKeysInText] first: a non-2xx server body or a GraphQL error that
+// echoes a pre-signed `?apikey=<JWT>` URL must not leak the credential to
+// stderr, the same invariant the success path holds on stdout.
 func writeErrorEnvelope(w io.Writer, code ExitCode, err error) {
 	env := stash.NewErrorEnvelope(err)
 	env.Code = code.Name
+	env.Message = redact.APIKeysInText(env.Message)
+	for i := range env.GraphQLErrors {
+		env.GraphQLErrors[i] = redact.APIKeysInText(env.GraphQLErrors[i])
+	}
 
 	b, marshalErr := json.Marshal(env)
 	if marshalErr != nil {
 		// A marshal failure must still produce a line an agent can read. A write
 		// error to stderr has no useful recovery, so it is deliberately ignored.
-		_, _ = fmt.Fprintf(w, `{"code":%q,"message":%q}`+"\n", code.Name, err.Error())
+		_, _ = fmt.Fprintf(w, `{"code":%q,"message":%q}`+"\n", code.Name, redact.APIKeysInText(err.Error()))
 		return
 	}
 	b = append(b, '\n')

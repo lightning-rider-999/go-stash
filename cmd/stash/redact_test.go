@@ -86,6 +86,66 @@ func TestRedactPreservesOtherQueryParams(t *testing.T) {
 	}
 }
 
+// TestRedactScrubsConfigSecrets: the Configuration-shaped payload exposes apiKey,
+// username, and password as bare scalar strings. Field-name redaction must scrub
+// all three; the URL pass alone never would.
+func TestRedactScrubsConfigSecrets(t *testing.T) {
+	in := json.RawMessage(`{"configuration":{"general":{"apiKey":"` + sampleJWT + `","username":"admin","password":"hunter2"}}}`)
+	out, err := redactAPIKeys(in)
+	if err != nil {
+		t.Fatalf("redactAPIKeys: %v", err)
+	}
+	s := string(out)
+	for _, secret := range []string{sampleJWT, "hunter2", "admin", "eyJ"} {
+		if strings.Contains(s, secret) {
+			t.Errorf("config secret %q leaked through redaction:\n%s", secret, s)
+		}
+	}
+	if !strings.Contains(s, "REDACTED") {
+		t.Errorf("redacted config is missing REDACTED:\n%s", s)
+	}
+}
+
+// TestRedactScrubsGenerateAPIKey: the generateAPIKey mutation returns the bare
+// JWT as {"generateAPIKey":"<jwt>"}; the field-name pass must scrub it.
+func TestRedactScrubsGenerateAPIKey(t *testing.T) {
+	out, err := redactAPIKeys(json.RawMessage(`{"generateAPIKey":"` + sampleJWT + `"}`))
+	if err != nil {
+		t.Fatalf("redactAPIKeys: %v", err)
+	}
+	s := string(out)
+	if strings.Contains(s, sampleJWT) || strings.Contains(s, "eyJ") {
+		t.Errorf("generateAPIKey JWT leaked:\n%s", s)
+	}
+	if !strings.Contains(s, "REDACTED") {
+		t.Errorf("generateAPIKey not REDACTED:\n%s", s)
+	}
+}
+
+// TestWriteOutputPreservesLargeInt64: a custom Int64 scalar above 2^53 must
+// round-trip through writeOutput unchanged in every format. Before the
+// number-preserving decode it was rounded through float64.
+func TestWriteOutputPreservesLargeInt64(t *testing.T) {
+	const big = "12345678901234567" // > 2^53
+	spec := commandSpec{
+		Path:       []string{"file", "get"},
+		OpName:     "FindFile",
+		ReturnType: "BaseFile",
+	}
+	payload := json.RawMessage(`{"findFile":{"id":"7","size":` + big + `}}`)
+	for _, format := range []string{"json", "ndjson", "yaml", "table"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := writeOutput(&buf, format, spec, payload); err != nil {
+				t.Fatalf("writeOutput(%s): %v", format, err)
+			}
+			if !strings.Contains(buf.String(), big) {
+				t.Errorf("%s output corrupted the Int64 %s:\n%s", format, big, buf.String())
+			}
+		})
+	}
+}
+
 // TestWriteOutputRedactsAllFormats is the end-to-end golden: the payload run
 // through writeOutput in json and ndjson modes must leak no JWT.
 func TestWriteOutputRedactsAllFormats(t *testing.T) {

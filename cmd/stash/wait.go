@@ -102,20 +102,27 @@ func terminalStatus(s stash.JobStatus) (terminal, success bool) {
 }
 
 // track runs the state machine to a terminal outcome or a typed exit condition.
-// It returns nil on FINISHED (exit 0) and an *exitCodeError carrying the precise
+// It returns nil on a clean stop and an *exitCodeError carrying the precise
 // taxonomy code otherwise:
 //
+//   - nil: the job FINISHED (exit 0), or ctx was cancelled (SIGINT) — a
+//     cancellation is a clean stop, matching the subscription streamer, not a
+//     failure.
 //   - job-failed (9): the job ended FAILED or CANCELLED; the job's error is in
 //     the envelope.
 //   - still-running (10): --wait-timeout elapsed before a terminal state; the
 //     job id is in the envelope so the agent can re-attach.
-//   - unconfirmed (11): a drop reconcile could not determine the outcome
-//     (findJob null or erroring); the job id is in the envelope.
-//   - transport: the subscription failed terminally and reconcile also failed.
+//   - unconfirmed (11): the outcome could not be confirmed — a drop reconcile
+//     found the job null or erroring, or the resubscribe bound was exhausted with
+//     the job still in flight. The job id is in the envelope, and the last
+//     stream/transport cause is wrapped into the message so a flapping socket is
+//     visible to whoever debugs it.
 //
 // The flow is: SEED (findJob; finish if already terminal) -> TRACK (follow
 // updates) -> on a REMOVE or a stream drop, RECONCILE (re-query findJob) which
-// either finishes, resumes tracking, or reports unconfirmed.
+// either finishes (terminal -> exit), resumes tracking (still running ->
+// resubscribe), or reports unconfirmed (indeterminate/exhausted, wrapping the
+// cause).
 func (jt *jobTracker) track(ctx context.Context, jobID string) error {
 	// SEED: an already-terminal job finishes without ever subscribing.
 	snap, err := jt.findJob(ctx, jobID)
@@ -143,8 +150,23 @@ func (jt *jobTracker) track(ctx context.Context, jobID string) error {
 		maxResub = defaultMaxResubscribes
 	}
 
+	// lastStreamErr keeps the most recent terminal stream/transport cause so it
+	// can be wrapped into the exhausted-unconfirmed error: an agent debugging a
+	// flapping socket then sees the underlying WS failure, not just a count.
+	var lastStreamErr error
+
 	for resub := 0; ; resub++ {
-		outcome, action, err := jt.trackOnce(ctx, jobID, timer)
+		// Each subscription attempt gets its own cancellable context, cancelled
+		// before the next attempt. Cancelling lets the prior stash.Subscribe
+		// observe ctx.Err(), close its events channel, and unblock its projection
+		// goroutine — otherwise a REMOVE-then-still-running resubscribe would
+		// orphan the old socket and its goroutine on every loop.
+		attemptCtx, cancel := context.WithCancel(ctx)
+		outcome, action, streamErr := jt.trackOnce(attemptCtx, jobID, timer)
+		cancel()
+		if streamErr != nil {
+			lastStreamErr = streamErr
+		}
 		switch action {
 		case actionFinished:
 			return outcomeToExit(jobID, outcome)
@@ -152,11 +174,18 @@ func (jt *jobTracker) track(ctx context.Context, jobID string) error {
 			return newExitCodeError(ExitStillRunning,
 				fmt.Errorf("job %s still running after %s", jobID, jt.timeout))
 		case actionCancelled:
-			return ctx.Err()
+			// SIGINT or parent cancellation: a clean stop (exit 0), matching the
+			// subscription streamer, not an internal error.
+			return nil
 		case actionReconcile:
 			// A REMOVE or a stream drop: re-query to decide.
 			done, reErr := jt.reconcile(ctx, jobID)
 			if reErr != nil {
+				if errors.Is(reErr, context.Canceled) {
+					// Cancelled mid-reconcile: a clean stop (exit 0), not an
+					// unconfirmed failure.
+					return nil
+				}
 				return reErr
 			}
 			if done != nil {
@@ -165,13 +194,21 @@ func (jt *jobTracker) track(ctx context.Context, jobID string) error {
 			// Still in flight: resubscribe within the bound.
 			if resub >= maxResub {
 				return newExitCodeError(ExitUnconfirmed,
-					fmt.Errorf("job %s: lost the update stream and could not confirm its outcome after %d attempts", jobID, maxResub))
+					exhaustedErr(jobID, maxResub, lastStreamErr))
 			}
 			continue
-		case actionError:
-			return err
 		}
 	}
+}
+
+// exhaustedErr builds the unconfirmed-after-exhaustion error, wrapping the last
+// stream/transport cause with %w when there was one so errors.Is/As reach it and
+// the message names the underlying failure.
+func exhaustedErr(jobID string, maxResub int, cause error) error {
+	if cause != nil {
+		return fmt.Errorf("job %s: lost the update stream and could not confirm its outcome after %d attempts: %w", jobID, maxResub, cause)
+	}
+	return fmt.Errorf("job %s: lost the update stream and could not confirm its outcome after %d attempts", jobID, maxResub)
 }
 
 // defaultMaxResubscribes bounds resubscribe attempts after a drop that reconcile
@@ -190,15 +227,18 @@ const (
 	actionTimeout
 	// actionCancelled: ctx was cancelled (SIGINT).
 	actionCancelled
-	// actionError: the subscription source reported a terminal error.
-	actionError
 )
 
 // trackOnce follows one subscription's update stream until the job reaches a
-// terminal status (actionFinished), the stream ends or the job is REMOVEd
-// (actionReconcile), the timeout fires (actionTimeout), ctx is cancelled
-// (actionCancelled), or the source errors terminally (actionError). It filters
-// updates to jobID and emits progress for each.
+// terminal status (actionFinished), the stream ends, is REMOVEd, or errors
+// terminally (actionReconcile), the timeout fires (actionTimeout), or ctx is
+// cancelled (actionCancelled). It filters updates to jobID and emits progress
+// for each.
+//
+// The third return is the terminal stream/transport cause when one ended the
+// run; it always rides with actionReconcile (reconcile decides whether it
+// matters) and is non-nil only for a real failure, so track can wrap it into the
+// exhausted-unconfirmed diagnostic. It is nil for a clean end or a REMOVE.
 func (jt *jobTracker) trackOnce(ctx context.Context, jobID string, timer <-chan time.Time) (jobOutcome, trackAction, error) {
 	updates, errCh := jt.subscribe(ctx)
 	for {

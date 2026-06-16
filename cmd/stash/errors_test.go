@@ -102,6 +102,34 @@ func TestErrorEnvelopeShape(t *testing.T) {
 	}
 }
 
+// TestErrorEnvelopeRedactsAPIKey: an error whose message and GraphQL errors echo
+// a pre-signed ?apikey=<JWT> URL must come out of writeErrorEnvelope with the JWT
+// scrubbed — the error path on stderr holds the same no-leak invariant as the
+// success path on stdout.
+func TestErrorEnvelopeRedactsAPIKey(t *testing.T) {
+	const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sig"
+	msgURL := "http://stash.local/scene/42/stream?apikey=" + jwt
+	err := &stash.GraphQLError{Errors: gqlerror.List{
+		{Message: "fetch failed for " + msgURL},
+		{Message: "retry against " + msgURL + " also failed"},
+	}}
+
+	var buf bytes.Buffer
+	writeErrorEnvelope(&buf, classifyExit(err), err)
+	s := buf.String()
+
+	if bytes.Contains(buf.Bytes(), []byte(jwt)) {
+		t.Errorf("error envelope leaked the JWT:\n%s", s)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("apikey=REDACTED")) {
+		t.Errorf("error envelope is missing apikey=REDACTED:\n%s", s)
+	}
+	// The surrounding message text and URL path must survive.
+	if !bytes.Contains(buf.Bytes(), []byte("http://stash.local/scene/42/stream")) {
+		t.Errorf("redaction mangled the URL in the envelope:\n%s", s)
+	}
+}
+
 // TestExitCodes is the per-path golden for the wired error path: each error
 // shape, driven through the live MakeRequest classifier where it has a wire
 // form, must yield the right code/integer AND a JSON envelope naming that code.

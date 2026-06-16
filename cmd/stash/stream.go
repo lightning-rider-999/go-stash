@@ -9,6 +9,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
+	"github.com/lightning-rider-999/go-stashapp/internal/redact"
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
@@ -71,6 +72,11 @@ func streamSubscription[T any](
 // [stash.Subscribe] returns, and is the injection point: a test supplies
 // in-memory channels, so no real socket and no reconnect machinery are needed.
 //
+// Each event is marshalled to JSON and run through [redact.APIKeys] before it is
+// written, so a subscription event whose string field carries a pre-signed
+// `?apikey=<JWT>` URL is scrubbed on the way to stdout, the same invariant the
+// success path holds via writeOutput.
+//
 // It returns:
 //
 //   - nil when ctx is cancelled (SIGINT): a clean stop, exit 0. The events
@@ -84,7 +90,6 @@ func streamEvents[T any](
 	errCh <-chan error,
 	out io.Writer,
 ) error {
-	enc := json.NewEncoder(out)
 	for {
 		select {
 		case <-ctx.Done():
@@ -96,13 +101,8 @@ func streamEvents[T any](
 				// channel for a terminal cause, else treat it as a clean stop.
 				return drainStreamErr(ctx, errCh)
 			}
-			if err := enc.Encode(ev); err != nil {
-				return fmt.Errorf("encoding subscription event: %w", err)
-			}
-			if f, ok := out.(interface{ Flush() error }); ok {
-				if err := f.Flush(); err != nil {
-					return fmt.Errorf("flushing subscription event: %w", err)
-				}
+			if err := writeStreamEvent(out, ev); err != nil {
+				return err
 			}
 		case err := <-errCh:
 			if err == nil || errors.Is(err, context.Canceled) {
@@ -111,6 +111,29 @@ func streamEvents[T any](
 			return classifyStreamErr(err)
 		}
 	}
+}
+
+// writeStreamEvent marshals one subscription event, redacts any embedded API
+// key, and writes the redacted JSON as one NDJSON line to out, flushing after
+// the line when out supports it so an agent sees events as they arrive.
+func writeStreamEvent[T any](out io.Writer, ev T) error {
+	raw, err := json.Marshal(ev)
+	if err != nil {
+		return fmt.Errorf("encoding subscription event: %w", err)
+	}
+	raw, err = redact.APIKeys(raw)
+	if err != nil {
+		return fmt.Errorf("redacting subscription event: %w", err)
+	}
+	if _, err := out.Write(append(raw, '\n')); err != nil {
+		return fmt.Errorf("writing subscription event: %w", err)
+	}
+	if f, ok := out.(interface{ Flush() error }); ok {
+		if err := f.Flush(); err != nil {
+			return fmt.Errorf("flushing subscription event: %w", err)
+		}
+	}
+	return nil
 }
 
 // drainStreamErr reads a terminal cause from a closed stream's error channel. A

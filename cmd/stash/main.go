@@ -9,13 +9,23 @@ package main
 import (
 	"context"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // main runs the root command and, on failure, emits the structured error
 // envelope to stderr and exits with the taxonomy's integer for the classified
 // error. See classifyExit and the exit-code table in docs/AGENTS.md.
+//
+// The root context is cancelled on the first SIGINT (Ctrl-C) or SIGTERM, so the
+// ctx.Done() clean-stop branches in the subscription streamer and the --wait
+// tracker fire and report a classified stop instead of the process being killed
+// by default disposition. signal.NotifyContext stops trapping after that first
+// signal, so a second Ctrl-C still force-kills a wedged command.
 func main() {
-	os.Exit(run(context.Background()))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	os.Exit(run(ctx))
 }
 
 // run executes the root command and returns the process exit status. It is split

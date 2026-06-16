@@ -84,3 +84,86 @@ func TestApiKeyRedaction(t *testing.T) {
 		t.Errorf("screenshot lost its sibling t=12 parameter: %q", screenshot)
 	}
 }
+
+// TestConfigSecretFieldRedaction guards the field-name mechanism: the
+// Configuration query exposes apiKey, username, and password as bare scalar
+// strings — no URL the query-parameter pass would catch — so redact.APIKeys must
+// replace each value with REDACTED. A leak here lands the raw JWT and the
+// cleartext password on stdout (and thus in an agent transcript).
+func TestConfigSecretFieldRedaction(t *testing.T) {
+	payload := json.RawMessage(`{
+		"configuration": {
+			"general": {
+				"apiKey": "` + sampleJWT + `",
+				"username": "admin",
+				"password": "hunter2"
+			}
+		}
+	}`)
+
+	out, err := redact.APIKeys(payload)
+	if err != nil {
+		t.Fatalf("redact.APIKeys: %v", err)
+	}
+	s := string(out)
+
+	for _, secret := range []string{sampleJWT, "hunter2", "admin"} {
+		if strings.Contains(s, secret) {
+			t.Errorf("redacted config still contains the secret %q:\n%s", secret, s)
+		}
+	}
+	if strings.Contains(s, "eyJ") {
+		t.Errorf("redacted config still contains a JWT token:\n%s", s)
+	}
+	// All three secret fields must be present and REDACTED.
+	var got struct {
+		Configuration struct {
+			General struct {
+				ApiKey   string `json:"apiKey"`
+				Username string `json:"username"`
+				Password string `json:"password"`
+			} `json:"general"`
+		} `json:"configuration"`
+	}
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("unmarshal redacted config: %v", err)
+	}
+	g := got.Configuration.General
+	if g.ApiKey != "REDACTED" || g.Username != "REDACTED" || g.Password != "REDACTED" {
+		t.Errorf("secret fields not all REDACTED: apiKey=%q username=%q password=%q", g.ApiKey, g.Username, g.Password)
+	}
+}
+
+// TestGenerateAPIKeyRedaction guards the bare-result field: the generateAPIKey
+// mutation returns the freshly minted JWT as {"generateAPIKey":"<jwt>"}, a plain
+// string with no URL, so the field-name pass must scrub it.
+func TestGenerateAPIKeyRedaction(t *testing.T) {
+	payload := json.RawMessage(`{"generateAPIKey":"` + sampleJWT + `"}`)
+	out, err := redact.APIKeys(payload)
+	if err != nil {
+		t.Fatalf("redact.APIKeys: %v", err)
+	}
+	s := string(out)
+	if strings.Contains(s, sampleJWT) || strings.Contains(s, "eyJ") {
+		t.Errorf("generateAPIKey JWT leaked:\n%s", s)
+	}
+	if !strings.Contains(s, "REDACTED") {
+		t.Errorf("generateAPIKey not REDACTED:\n%s", s)
+	}
+}
+
+// TestRedactPreservesLargeInt64 guards the number-preservation fix: a custom
+// Int64 scalar above 2^53 (BaseFile.size, SQLExecResult row counts) emitted as a
+// bare JSON number must survive redact.APIKeys verbatim, not be rounded through
+// float64.
+func TestRedactPreservesLargeInt64(t *testing.T) {
+	const big = "12345678901234567" // > 2^53, loses precision as float64
+	payload := json.RawMessage(`{"baseFile":{"size":` + big + `}}`)
+	out, err := redact.APIKeys(payload)
+	if err != nil {
+		t.Fatalf("redact.APIKeys: %v", err)
+	}
+	if !strings.Contains(string(out), big) {
+		t.Errorf("large Int64 was corrupted on redaction round-trip:\nwant %s in\n%s", big, out)
+	}
+}

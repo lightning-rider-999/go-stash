@@ -6,13 +6,13 @@ import (
 	"github.com/lightning-rider-999/go-stashapp/internal/redact"
 )
 
-// redactAPIKeys scrubs the instance API key out of every pre-signed media URL
-// the payload carries. Stash signs Scene.paths.stream and friends with the
-// instance API key as an `apikey` query parameter
-// (http://host/scene/42/stream?apikey=<JWT>); that JWT travels in the default
-// scene payload, so the output layer redacts it before anything is printed or
-// logged. The redaction logic lives in [redact.APIKeys] so the conformance
-// suite can exercise it directly.
+// redactAPIKeys scrubs the instance credential out of a payload before the
+// output layer prints or logs it. Two leaks are covered: pre-signed media URLs
+// that carry the API key as an `apikey` query parameter (Scene.paths.stream and
+// friends), and bare secret config fields (apiKey, password, generateAPIKey,
+// username) that the Configuration query and generateAPIKey mutation return as
+// plain strings. The logic lives in [redact.APIKeys] so the conformance suite
+// can exercise it directly.
 func redactAPIKeys(data json.RawMessage) (json.RawMessage, error) {
 	return redact.APIKeys(data)
 }

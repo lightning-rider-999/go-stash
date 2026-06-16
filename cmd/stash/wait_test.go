@@ -256,8 +256,9 @@ func TestWaitTimeoutStillRunning(t *testing.T) {
 	})
 }
 
-// TestWaitContextCancel: a cancelled context stops the wait cleanly, returning
-// the context error (not a taxonomy failure).
+// TestWaitContextCancel: a cancelled context (SIGINT) stops the wait as a clean
+// stop — track returns nil and classifyExit maps it to ExitOK (exit 0), matching
+// the subscription streamer, not an internal-error crash.
 func TestWaitContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	jt := &jobTracker{
@@ -272,11 +273,160 @@ func TestWaitContextCancel(t *testing.T) {
 	cancel()
 	select {
 	case err := <-errc:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("cancel returned %v, want context.Canceled", err)
+		if err != nil {
+			t.Fatalf("cancel returned %v, want nil (clean stop)", err)
+		}
+		if got := classifyExit(err); got != ExitOK {
+			t.Fatalf("classifyExit(cancel) = %v, want %v (exit 0)", got, ExitOK)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("track did not return within 2s of cancel")
+	}
+}
+
+// TestWaitReconcileCancelCleanStop: a context cancellation observed during
+// reconcile (the findJob re-query after a drop) is a clean stop (nil/exit 0),
+// not an unconfirmed failure, matching the trackOnce cancellation path.
+func TestWaitReconcileCancelCleanStop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// The stream drops immediately, sending track into reconcile; findJob then
+	// returns context.Canceled, modelling a cancel that lands mid-reconcile.
+	dropped := make(chan jobUpdate)
+	close(dropped)
+
+	jt := &jobTracker{
+		findJob: func(_ context.Context, _ string) (*stash.FindJobFindJob, error) {
+			return nil, context.Canceled
+		},
+		subscribe: scriptedSource(subScript{updates: dropped, errs: make(chan error)}),
+		progress:  io.Discard,
+	}
+	cancel() // ensure ctx.Err() is Canceled when reconcile maps it
+	err := jt.track(ctx, testJobID)
+	if err != nil {
+		t.Fatalf("reconcile cancel returned %v, want nil (clean stop)", err)
+	}
+	if got := classifyExit(err); got != ExitOK {
+		t.Fatalf("classifyExit = %v, want %v", got, ExitOK)
+	}
+}
+
+// TestWaitExhaustedWrapsCause: when resubscribe is exhausted with the job still
+// in flight, the unconfirmed error must wrap the last terminal stream cause so an
+// agent debugging a flapping socket sees the underlying transport failure
+// (errors.Is reaches it), not just an attempt count.
+func TestWaitExhaustedWrapsCause(t *testing.T) {
+	streamCause := errors.New("websocket: connection reset by peer")
+
+	// Every attempt: an errCh that immediately reports the terminal cause, so
+	// trackOnce returns actionReconcile carrying classifyStreamErr(cause), and
+	// findJob always shows RUNNING so reconcile always resubscribes until the
+	// bound is hit.
+	subscribe := func(context.Context) (<-chan jobUpdate, <-chan error) {
+		errs := make(chan error, 1)
+		errs <- streamCause
+		return make(chan jobUpdate), errs
+	}
+	jt := &jobTracker{
+		findJob:         fakeFindJob(findJobStep{snap: jobFixture(testJobID, stash.JobStatusRunning, "")}),
+		subscribe:       subscribe,
+		progress:        io.Discard,
+		maxResubscribes: 2,
+	}
+	err := jt.track(context.Background(), testJobID)
+	if err == nil {
+		t.Fatal("expected an unconfirmed error, got nil")
+	}
+	if got := classifyExit(err); got != ExitUnconfirmed {
+		t.Fatalf("classifyExit = %v, want %v", got, ExitUnconfirmed)
+	}
+	if !errors.Is(err, streamCause) {
+		t.Fatalf("exhausted error %q does not wrap the stream cause %v", err.Error(), streamCause)
+	}
+	if !strings.Contains(err.Error(), testJobID) {
+		t.Fatalf("error %q must carry the job id", err.Error())
+	}
+}
+
+// TestWaitResubscribeNoGoroutineLeak is the regression for the per-attempt
+// context fix: a subscription source that mirrors production (a projection
+// goroutine that blocks on `out <- *u`) must not orphan that goroutine across a
+// resubscribe. Without a per-attempt cancellable context, the goroutine from the
+// first attempt — holding a queued update no one will read after the drop —
+// blocks forever; cancelling the attempt context drains it.
+func TestWaitResubscribeNoGoroutineLeak(t *testing.T) {
+	const want = "leaky"
+	var live sync.WaitGroup
+
+	// subscribe models jobsSubscribeSource: each call spawns a goroutine that
+	// forwards updates and exits on ctx.Done(). The first attempt's stream
+	// carries a RUNNING update plus a second update that no one reads (the first
+	// is consumed, then the run drops); that goroutine can only exit when its
+	// attempt context is cancelled.
+	attempt := 0
+	subscribe := func(ctx context.Context) (<-chan jobUpdate, <-chan error) {
+		attempt++
+		out := make(chan jobUpdate)
+		errCh := make(chan error)
+		if attempt == 1 {
+			live.Add(1)
+			// Two updates queued; the source closes on neither, so after the
+			// tracker reads the first and drops, the goroutine blocks on the
+			// second send until the attempt ctx is cancelled.
+			src := []jobUpdate{
+				updateOf(want, stash.JobStatusUpdateTypeUpdate, stash.JobStatusRunning, ""),
+				updateOf(want, stash.JobStatusUpdateTypeUpdate, stash.JobStatusRunning, ""),
+			}
+			go func() {
+				defer live.Done()
+				for _, u := range src {
+					select {
+					case out <- u:
+					case <-ctx.Done():
+						return
+					}
+				}
+				<-ctx.Done()
+			}()
+			// Drop the first attempt right after one update is delivered by
+			// closing nothing: the tracker sees one RUNNING update then the
+			// errCh fires a clean end to force reconcile.
+			go func() {
+				// Allow the first update to be consumed, then end the stream.
+				select {
+				case errCh <- nil:
+				case <-ctx.Done():
+				}
+			}()
+			return out, errCh
+		}
+		// Second attempt: deliver FINISHED so the wait ends.
+		fin := make(chan jobUpdate, 1)
+		fin <- updateOf(want, stash.JobStatusUpdateTypeUpdate, stash.JobStatusFinished, "")
+		return fin, errCh
+	}
+
+	jt := &jobTracker{
+		findJob: fakeFindJob(
+			findJobStep{snap: jobFixture(want, stash.JobStatusRunning, "")},
+			findJobStep{snap: jobFixture(want, stash.JobStatusRunning, "")},
+		),
+		subscribe: subscribe,
+		progress:  io.Discard,
+	}
+	if err := jt.track(context.Background(), want); err != nil {
+		t.Fatalf("track returned %v, want nil after resume->finish", err)
+	}
+
+	// The first attempt's projection goroutine must have exited (via its
+	// cancelled attempt context). A leak hangs here until the test deadline.
+	done := make(chan struct{})
+	go func() { live.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first-attempt projection goroutine leaked across resubscribe")
 	}
 }
 

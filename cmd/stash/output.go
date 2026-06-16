@@ -154,8 +154,8 @@ func soleArrayField(obj map[string]any) ([]any, bool) {
 // GraphQL response data object carries and returns the decoded inner value.
 // When data is not a single-field object it is returned decoded as-is.
 func unwrapResult(data json.RawMessage) any {
-	var v any
-	if err := json.Unmarshal(data, &v); err != nil {
+	v, err := decodeAny(data)
+	if err != nil {
 		return nil
 	}
 	if obj, ok := v.(map[string]any); ok && len(obj) == 1 {
@@ -166,6 +166,21 @@ func unwrapResult(data json.RawMessage) any {
 	return v
 }
 
+// decodeAny decodes JSON into a generic value with number preservation enabled,
+// so a custom Int64 scalar above 2^53 (BaseFile.size, SQLExecResult row counts)
+// stays a json.Number and survives re-encoding verbatim instead of being rounded
+// through float64. The cell and writeNDJSONLine renderers already handle
+// json.Number alongside float64.
+func decodeAny(data json.RawMessage) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // writeYAML renders data as YAML. The JSON is decoded to a generic value and
 // re-encoded with yaml.v2, so nested maps and lists survive intact.
 func writeYAML(w io.Writer, data json.RawMessage) error {
@@ -173,8 +188,8 @@ func writeYAML(w io.Writer, data json.RawMessage) error {
 		_, err := io.WriteString(w, "null\n")
 		return err
 	}
-	var v any
-	if err := json.Unmarshal(data, &v); err != nil {
+	v, err := decodeAny(data)
+	if err != nil {
 		return fmt.Errorf("decoding response data: %w", err)
 	}
 	b, err := yaml.Marshal(v)

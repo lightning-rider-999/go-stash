@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -125,6 +126,49 @@ func TestStreamStopsCleanlyOnCancel(t *testing.T) {
 
 	if got := len(nonEmptyLines(out.String())); got != 1 {
 		t.Fatalf("emitted %d lines before cancel, want 1", got)
+	}
+}
+
+// TestStreamRedactsAPIKey: a subscription event whose string field carries a
+// pre-signed ?apikey=<JWT> URL must be scrubbed before the NDJSON line reaches
+// stdout, the same no-leak invariant the success path holds via writeOutput.
+func TestStreamRedactsAPIKey(t *testing.T) {
+	const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sig"
+	events := make(chan streamEvent, 1)
+	errCh := make(chan error)
+	out := newSyncWriter()
+
+	events <- streamEvent{Seq: 1, Msg: "http://stash.local/scene/42/stream?apikey=" + jwt}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- streamEvents[streamEvent](ctx, events, errCh, out) }()
+
+	select {
+	case <-out.lines:
+	case <-time.After(2 * time.Second):
+		t.Fatal("event was not emitted within 2s")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("streamEvents did not stop within 2s of cancel")
+	}
+
+	s := out.String()
+	if strings.Contains(s, jwt) {
+		t.Errorf("stream line leaked the JWT:\n%s", s)
+	}
+	if !strings.Contains(s, "apikey=REDACTED") {
+		t.Errorf("stream line is missing apikey=REDACTED:\n%s", s)
+	}
+	// Each emitted line is still valid NDJSON.
+	for _, line := range nonEmptyLines(s) {
+		var got streamEvent
+		if err := json.Unmarshal([]byte(line), &got); err != nil {
+			t.Fatalf("stream line not valid JSON (%q): %v", line, err)
+		}
 	}
 }
 
