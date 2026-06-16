@@ -1,13 +1,3 @@
-// Package conformance is the project's authoritative quality gate: it asserts
-// that the generated surface (operations, fragments, manifest, catalog, typed
-// Go bindings) stays faithful to the vendored Stash SDL. Any drift in the
-// generated artefacts — a new field, a renamed type, a dropped operation — must
-// turn one of these tests red rather than slip through silently.
-//
-// All files here are tests only; the package ships no production code. Each test
-// realises one of the conformance gates described in the task. The shared
-// fixtures below load the schema, overlay, and compiled surface exactly once per
-// test binary so the gates are cheap to add to.
 package conformance
 
 import (

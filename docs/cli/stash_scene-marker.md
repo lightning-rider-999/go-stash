@@ -1,0 +1,33 @@
+## stash scene-marker
+
+scene-marker operations
+
+```
+stash scene-marker [flags]
+```
+
+### Options
+
+```
+  -h, --help   help for scene-marker
+```
+
+### Options inherited from parent commands
+
+```
+      --api-key string   Stash API key (default $STASHAPP_API_KEY)
+      --input string     variables source: JSON file path, or "-" for stdin
+  -o, --output string    output format: json, ndjson, table, yaml (default "json")
+      --url string       Stash base URL (default $STASHAPP_URL)
+```
+
+### SEE ALSO
+
+* [stash](stash.md)	 - Agent-first CLI for the Stash GraphQL API
+* [stash scene-marker bulk-update](stash_scene-marker_bulk-update.md)	 - BulkSceneMarkerUpdate (mutation)
+* [stash scene-marker create](stash_scene-marker_create.md)	 - SceneMarkerCreate (mutation)
+* [stash scene-marker destroy](stash_scene-marker_destroy.md)	 - SceneMarkerDestroy (mutation)
+* [stash scene-marker destroy-many](stash_scene-marker_destroy-many.md)	 - SceneMarkersDestroy (mutation)
+* [stash scene-marker list](stash_scene-marker_list.md)	 - FindSceneMarkers (query)
+* [stash scene-marker update](stash_scene-marker_update.md)	 - SceneMarkerUpdate (mutation)
+

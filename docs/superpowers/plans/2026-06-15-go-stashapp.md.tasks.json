@@ -100,7 +100,7 @@
       "description": "**Goal:** Wire all gates; minimal GitHub Actions (task check + task vuln).\n\n**Verify:** `task check && task vuln`.\n\n```json:metadata\n{\"files\":[\".golangci.yml\",\".github/workflows/ci.yml\"],\"verifyCommand\":\"task check && task vuln\",\"acceptanceCriteria\":[\"all gates wired\",\"CI runs check+vuln\"],\"modelTier\":\"standard\"}\n```"
     },
     {
-      "id": 25, "subject": "Task 25: godoc + generated CLI reference + AGENTS.md + README", "status": "in_progress", "blockedBy": [21, 20],
+      "id": 25, "subject": "Task 25: godoc + generated CLI reference + AGENTS.md + README", "status": "completed", "blockedBy": [21, 20],
       "description": "**Goal:** Doc comments on every exported symbol + runnable Examples; docs/cli/ from cobra; docs/AGENTS.md (exit-code table, error envelope, enum-symbol rule, multi-criterion example, --wait incl. unconfirmed re-attach, partial-update contract, per_page:-1 footgun, idempotency); README quickstart.\n\n**Verify:** `go test ./... -run Example && golangci-lint run`.\n\n```json:metadata\n{\"files\":[\"docs/AGENTS.md\",\"docs/cli/\",\"README.md\",\"doc.go\"],\"verifyCommand\":\"go test ./... -run Example\",\"acceptanceCriteria\":[\"godoc + Examples\",\"generated cli ref\",\"AGENTS.md complete\",\"README quickstart\"],\"modelTier\":\"standard\"}\n```"
     }
   ]
