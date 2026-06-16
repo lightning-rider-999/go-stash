@@ -21,8 +21,12 @@ Go client surface. From one schema load it produces:
   `stash` package (`stash/operations_gen.go`).
 - **An operation manifest** (`operations/manifest.json`): a thin per-operation
   index.
-- **A machine catalog** (`schema/catalog.json`): the agent-facing description of
-  the call surface (input `$defs`, enum symbols, deprecations, exit-code sets).
+- **A machine catalog**: the agent-facing description of the call surface (input
+  `$defs`, enum symbols, deprecations, exit-code sets). It is written to two
+  byte-identical locations — the canonical `schema/catalog.json` and
+  `cmd/stash/catalog.json`, which the CLI `//go:embed`s (go:embed cannot reach
+  the repo-root copy via `..`). Both are covered by the Taskfile freshness gate,
+  so they cannot drift.
 - **A cobra command table** (`cmd/stash/gen_commands.go`): the CLI tree derived
   from the manifest.
 
@@ -295,17 +299,21 @@ Stash-specific split, read off the code.
 | Fragment + ref policy | `fragments.go` (`IsRefable`, `writeObjectEdge`, `writeAbstractEdge`) |
 | Cycle termination | `cycle.go` + the build-path tracking in `fragments.go` |
 | Operation assembly | `operations.go` |
-| Manifest / catalog builders | `manifest.go`, `catalog.go` |
-| CLI path derivation engine | `cli.go` (`derivePath` *structure*, `BuildCommands`, `EmitCommands`) |
+| Manifest builder | `manifest.go` |
+| CLI command engine | `cli.go` (the `BuildCommands` collision check, `pathLiteral`, `kebab`) |
 
-None of these hard-codes a Stash type name.
+These are schema-agnostic: none hard-codes a Stash type name. The rest of `cli.go`
+(`derivePath`'s rule set, the irregular plural/find maps, the prefix groups, and
+`EmitCommands`) and `catalog.go` are Stash-coupled — see the next table.
 
 ### Stash-flavored — must become inputs before extraction
 
 | Concern | Where | What it hard-codes |
 |---------|-------|--------------------|
 | Path-named allowlist | `exceptions.go` `pathNamedAllowlist` | Literal Stash type names (`SceneGroup`, `VisualFile`, `Folder`, …). Must become a per-schema config input. |
-| Resource/verb derivation | `cli.go` `pluralEntity`, `singularEntity`, `subscriptionPaths`, `derivePath` rules | Stash-ish irregular plurals (`Galleries` → gallery), multi-word nouns, and prefix groups (`metadata*`, `scrape*`, `stashBox*`). Needs to be configurable naming. |
+| Resource/verb derivation | `cli.go` `pluralEntity`, `singularEntity`, `subscriptionPaths`, `derivePath` rules | Stash-ish irregular plurals (`Galleries` → gallery), multi-word nouns, the irregular plural/find maps, and prefix groups (`metadata*`, `scrape*`, `stashBox*`, `configure*`). Needs to be configurable naming. |
+| Command-table emitter | `cli.go` `EmitCommands` | Hardcodes the import path `github.com/lightning-rider-999/go-stashapp/stash` and `stash.<OpName>_Operation`. Both must become a configurable target package. |
+| Catalog builder | `catalog.go` | Imports `internal/exitcode` (`catalog.go:6`); the exit-code vocabulary it bakes into the catalog must become an injected input on extraction. |
 | Scalar bindings | `genqlient.yaml` `bindings` | Already per-schema (lives in genqlient config, not genops). |
 | Overlay (destructive / job-returning) | `operations/overlay.yaml` | Already an input file (`overlay.go` `LoadOverlay`), validated against the schema. |
 

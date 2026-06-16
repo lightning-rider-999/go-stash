@@ -121,6 +121,10 @@ import (
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
 
+// ptr returns a pointer to v, for the generated input types whose optional
+// fields are pointers (Q *string, Per_page *int, …).
+func ptr[T any](v T) *T { return &v }
+
 func main() {
 	// URL and API key fall back to STASHAPP_URL / STASHAPP_API_KEY.
 	c, err := stash.NewClient(stash.WithURL("http://stash.local:9999"))
@@ -139,8 +143,8 @@ func main() {
 
 	// A generated operation. Pass c.GraphQL() as the client.
 	resp, err := stash.FindScenes(ctx, c.GraphQL(), nil, nil, &stash.FindFilterType{
-		Q:        "sunset",
-		Per_page: 25,
+		Q:        ptr("sunset"),
+		Per_page: ptr(25),
 	})
 	if err != nil {
 		log.Fatal(err)

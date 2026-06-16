@@ -8,6 +8,9 @@
 /.idea/
 *.swp
 
+# Agent harness worktree / state
+/.claude/
+
 # Local environment
 .env
 

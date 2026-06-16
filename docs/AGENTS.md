@@ -17,7 +17,9 @@ and the exit integer always agree.
 The (name, integer) pairs are **frozen**. The name is the envelope's `code`
 field; the integer is the process exit status. `schema/catalog.json` lists, per
 command, the subset of these names it can produce in its `exitCodes` array, so
-the catalog and the runtime use the same vocabulary.
+the catalog and the runtime use the same vocabulary (the running CLI serves a
+byte-identical `cmd/stash/catalog.json` it `//go:embed`s; `schema/catalog.json`
+is the canonical source that embedded copy is generated from).
 
 | Code name             | Exit | When it occurs                                                                                  |
 |-----------------------|-----:|-------------------------------------------------------------------------------------------------|
@@ -29,10 +31,10 @@ the catalog and the runtime use the same vocabulary.
 | `validation`          |    5 | The server executed the request but rejected the input as invalid (a GraphQL error whose message reads like input validation). |
 | `server-fault`        |    6 | The server returned a GraphQL error that is not the caller's fault and not one of the more specific classes. |
 | `not-found`           |    7 | The requested object does not exist (a GraphQL error whose message reads like a missing object).|
-| `destructive-refused` |    8 | A destructive operation was invoked without the required confirmation. *(Produced by the destructive-gating path; reserved here.)* |
-| `job-failed`          |    9 | An async (job-returning) operation finished in a failed state. *(Produced by the `--wait` path; reserved here.)* |
-| `still-running`       |   10 | `--wait` timed out with the job still running. *(Produced by the `--wait` path; reserved here.)* |
-| `unconfirmed`         |   11 | A required confirmation prompt was declined or could not be shown. *(Reserved here.)*           |
+| `destructive-refused` |    8 | A destructive operation was invoked without the required confirmation. *(Produced by the destructive-gating path, `gate.go`.)* |
+| `job-failed`          |    9 | An async (job-returning) operation finished in a failed state. *(Produced by the `--wait` path, `wait.go`.)* |
+| `still-running`       |   10 | `--wait` timed out with the job still running. *(Produced by the `--wait` path, `wait.go`.)* |
+| `unconfirmed`         |   11 | A required confirmation prompt was declined or could not be shown. *(Produced by the `--wait` path, `wait.go`.)* |
 
 Notes:
 
@@ -40,9 +42,10 @@ Notes:
   code is never confused with a crash. Map a generic internal error to `internal`
   (exit 1), not to any class above.
 - The `destructive-refused`, `job-failed`, `still-running`, and `unconfirmed`
-  codes are **returned by their own command paths** (destructive gating and
-  `--wait`). They are not inferred from a server error. Their constants exist now
-  so those paths can produce them; some are not yet emitted.
+  codes are **returned by their own command paths**, not inferred from a server
+  error: `destructive-refused` by the destructive-gating path (`gate.go`), and
+  `job-failed`, `still-running`, and `unconfirmed` by the `--wait` path
+  (`wait.go`).
 
 ### How a server error is classified
 

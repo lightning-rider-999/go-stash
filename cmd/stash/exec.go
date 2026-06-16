@@ -19,12 +19,14 @@ import (
 // the request carries the operation document (spec.Query) and the caller's raw
 // JSON variables, and the response data is captured as json.RawMessage. This
 // preserves the present/absent/null three-state of mutation inputs that typed
-// Go structs erase — the three-state input binding (Task 18) builds on this.
+// Go structs erase.
 //
-// Variables come from --input/stdin JSON only for now (Task 18 adds typed input
-// binding). An operation with no input and no required arguments is sent with
-// empty variables. A transport error is mapped into the SDK error model so the
-// CLI reports a stable, agent-readable classification.
+// Variables come from the resolved --input/stdin JSON plus the convenience flags
+// (see input.go's resolveVariables) and are bound as raw JSON, so the
+// present/absent/null three-state survives to the wire. An operation with no
+// input and no required arguments is sent with empty variables. A transport
+// error is mapped into the SDK error model so the CLI reports a stable,
+// agent-readable classification.
 //
 // format selects the output rendering (--output); writeOutput redacts API keys
 // and renders the response data. An empty format defaults to json.
