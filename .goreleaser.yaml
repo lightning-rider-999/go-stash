@@ -55,8 +55,12 @@ archives:
           - zip
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # Ship the LICENSE alongside the binary so the grant travels with the
+    # artifact; the README is online and adds nothing to a single-binary CLI
+    # archive. tar.gz/zip both preserve the binary's exec bit, so extract-and-run
+    # needs no chmod.
     files:
-      - README.md
+      - LICENSE
 
 checksum:
   name_template: checksums.txt
