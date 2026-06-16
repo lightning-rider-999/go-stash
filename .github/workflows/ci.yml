@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [feat/plan]
+    branches: [main]
   pull_request:
 
 permissions:
