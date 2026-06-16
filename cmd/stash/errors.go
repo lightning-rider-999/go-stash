@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lightning-rider-999/go-stashapp/internal/exitcode"
 	"github.com/lightning-rider-999/go-stashapp/internal/redact"
 	"github.com/lightning-rider-999/go-stashapp/stash"
 )
@@ -18,11 +19,21 @@ import (
 // error envelope's "code" field, so a caller reading the JSON on stderr and a
 // caller reading $? see the same classification. The (name, integer) pairs are
 // FROZEN — never renumber them; agents and schema/catalog.json depend on them.
+//
+// The values come from the shared taxonomy in internal/exitcode, which the
+// catalog generator also reads, so the names the CLI exits with and the names
+// the catalog advertises cannot drift.
 type ExitCode struct {
 	// Name is the stable, machine-readable classification (e.g. "auth").
 	Name string
 	// Code is the process exit status for this classification.
 	Code int
+}
+
+// fromShared adapts a shared taxonomy code to cmd/stash's ExitCode shape (Name
+// + Code), the form this package's runtime and the error envelope use.
+func fromShared(c exitcode.Code) ExitCode {
+	return ExitCode{Name: c.Name, Code: c.Status}
 }
 
 // The frozen exit-code taxonomy. The integers are a contract:
@@ -44,18 +55,18 @@ type ExitCode struct {
 // confused with an unexpected crash. The names mirror schema/catalog.json's
 // per-command exitCodes arrays exactly, so the catalog and the runtime agree.
 var (
-	ExitOK                 = ExitCode{Name: "ok", Code: 0}
-	ExitInternal           = ExitCode{Name: "internal", Code: 1}
-	ExitUsage              = ExitCode{Name: "usage", Code: 2}
-	ExitAuth               = ExitCode{Name: "auth", Code: 3}
-	ExitTransport          = ExitCode{Name: "transport", Code: 4}
-	ExitValidation         = ExitCode{Name: "validation", Code: 5}
-	ExitServerFault        = ExitCode{Name: "server-fault", Code: 6}
-	ExitNotFound           = ExitCode{Name: "not-found", Code: 7}
-	ExitDestructiveRefused = ExitCode{Name: "destructive-refused", Code: 8}
-	ExitJobFailed          = ExitCode{Name: "job-failed", Code: 9}
-	ExitStillRunning       = ExitCode{Name: "still-running", Code: 10}
-	ExitUnconfirmed        = ExitCode{Name: "unconfirmed", Code: 11}
+	ExitOK                 = fromShared(exitcode.OK)
+	ExitInternal           = fromShared(exitcode.Internal)
+	ExitUsage              = fromShared(exitcode.Usage)
+	ExitAuth               = fromShared(exitcode.Auth)
+	ExitTransport          = fromShared(exitcode.Transport)
+	ExitValidation         = fromShared(exitcode.Validation)
+	ExitServerFault        = fromShared(exitcode.ServerFault)
+	ExitNotFound           = fromShared(exitcode.NotFound)
+	ExitDestructiveRefused = fromShared(exitcode.DestructiveRefused)
+	ExitJobFailed          = fromShared(exitcode.JobFailed)
+	ExitStillRunning       = fromShared(exitcode.StillRunning)
+	ExitUnconfirmed        = fromShared(exitcode.Unconfirmed)
 )
 
 // usageError marks an error as a CLI usage problem (bad flags, wrong argument

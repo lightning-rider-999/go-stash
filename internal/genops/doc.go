@@ -17,4 +17,6 @@
 //
 // genops runs at build time only (see the cmd/genops main and the //go:generate
 // directives that drive it). It is not imported by the SDK or CLI at runtime.
+//
+// See README.md for the design rationale and extraction notes.
 package genops

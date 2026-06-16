@@ -2,6 +2,8 @@ package genops
 
 import (
 	"github.com/vektah/gqlparser/v2/ast"
+
+	"github.com/lightning-rider-999/go-stashapp/internal/exitcode"
 )
 
 // Catalog is the machine-facing description of the generated client surface:
@@ -65,8 +67,20 @@ type EnumValueDoc struct {
 	Deprecated  string `json:"deprecated,omitempty"`
 }
 
-// Base exit codes every command can return, in frozen order.
-var baseExitCodes = []string{"ok", "usage", "auth", "transport", "validation", "server-fault"}
+// baseExitCodes are the names of the exit codes every command can return, in
+// frozen order. The catalog needs only the names; they are sourced from the
+// shared taxonomy in internal/exitcode so the catalog's vocabulary cannot drift
+// from the CLI's actual exit codes.
+var baseExitCodes = exitCodeNames(exitcode.Base)
+
+// exitCodeNames projects the names out of a slice of taxonomy codes, in order.
+func exitCodeNames(codes []exitcode.Code) []string {
+	names := make([]string, len(codes))
+	for i, c := range codes {
+		names[i] = c.Name
+	}
+	return names
+}
 
 // BuildCatalog produces the catalog: a CommandDoc per root field plus the
 // transitive closure of input objects and enums reachable from every
@@ -220,13 +234,13 @@ func enumTypeDef(def *ast.Definition) TypeDef {
 func exitCodes(s *ast.Schema, f *ast.FieldDefinition, destructive, jobReturning bool) []string {
 	codes := append([]string(nil), baseExitCodes...)
 	if canMiss(s, f) {
-		codes = append(codes, "not-found")
+		codes = append(codes, exitcode.NotFound.Name)
 	}
 	if destructive {
-		codes = append(codes, "destructive-refused")
+		codes = append(codes, exitcode.DestructiveRefused.Name)
 	}
 	if jobReturning {
-		codes = append(codes, "job-failed", "still-running", "unconfirmed")
+		codes = append(codes, exitcode.JobFailed.Name, exitcode.StillRunning.Name, exitcode.Unconfirmed.Name)
 	}
 	return codes
 }
