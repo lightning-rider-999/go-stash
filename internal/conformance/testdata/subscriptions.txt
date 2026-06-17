@@ -1,0 +1,3 @@
+jobsSubscribe
+loggingSubscribe
+scanCompleteSubscribe
