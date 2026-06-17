@@ -1,0 +1,45 @@
+# Build output (Taskfile `build` target)
+/bin/
+
+# GoReleaser output (release + snapshot builds)
+/dist/
+
+# Ad-hoc tool binaries built into the repo root. These land here only if a
+# generator is `go build`-ed standalone instead of run via `go run`/`go tool` (as
+# `go:generate` does): `genqlient` from the genqlient tool, `gen` from a standalone
+# build of the local `./internal/gen` driver. They are large, platform-specific,
+# and never belong in version control.
+/genqlient
+/gen
+
+# IDE / editor
+/.idea/
+*.swp
+
+# Agent harness state. `.claude/skills/` ships with the repo — the inspect-and-fix
+# skill (SKILL.md plus its scripts/, the GoLand headless-inspection runner) travels
+# with the code — so only the harness's local scratch is ignored: per-checkout
+# worktrees and the machine-local settings override.
+/.claude/worktrees/
+/.claude/settings.local.json
+
+# Python bytecode. The inspect-and-fix skill ships goland-inspect.py; py_compile or
+# importing it drops bytecode that nothing else would ignore.
+__pycache__/
+*.pyc
+
+# Local environment
+.env
+
+# JetBrains Qodana.
+# `/qodana.yaml` stays ignored deliberately: Qodana requires a cloud token and is
+# NOT wired into CI here, so a committed config would mislead clones into thinking
+# a linter runs that doesn't. golangci-lint (see Taskfile `check`) is the linter
+# of record. If Qodana is ever added to CI, drop the /qodana.yaml line so the
+# config travels with the repo. `.qodana/` is local scan output and stays ignored.
+/qodana.yaml
+.qodana/
+
+# CodeGraph — local semantic-index tooling (SQLite DB + config). Per-machine
+# state that never belongs in version control; the graph is rebuilt locally.
+/.codegraph/
