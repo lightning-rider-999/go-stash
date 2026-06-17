@@ -1,0 +1,36 @@
+# golangci-lint v2 configuration. See https://golangci-lint.run
+#
+# Beyond the standard set (errcheck, govet, ineffassign, staticcheck, unused),
+# this enables a curated band of CORRECTNESS-focused linters — the kind that
+# catch real bugs (unclosed bodies, swallowed errors, missing ctx, non-exhaustive
+# switches) rather than style. Pure-style/opinionated linters (prealloc, perfsprint,
+# unparam, gosec's in-context false positives) are deliberately left off; security
+# is covered by `task vuln` (govulncheck) and review.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose       # HTTP/response bodies must be closed
+    - copyloopvar     # Go 1.22+ loop-var semantics
+    - durationcheck   # no accidental time.Duration multiplications
+    - errorlint       # %w / errors.Is/As correctness
+    - makezero        # no append to a non-zero-length make()d slice
+    - misspell
+    - nilerr          # don't return nil after a non-nil error
+    - noctx           # no HTTP requests without a context
+    - reassign        # don't reassign package vars from another package
+    - unconvert       # no redundant type conversions
+    - usestdlibvars   # http.StatusX etc. over magic numbers
+    - wastedassign    # no assignments that are never read
+  exclusions:
+    generated: lax
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

@@ -1,0 +1,78 @@
+# Curated operation metadata that cannot be derived from the SDL alone.
+#
+# Lists are keyed by GraphQL root-field name (e.g. metadataScan), not by the
+# generated operation name. Every name is validated against the vendored schema
+# at load time, so a rename or removal upstream is a red build, not a silent
+# drift (see LoadOverlay).
+# destructive: every mutation that can drop / overwrite / anonymise /
+# merge-away data with no undo. A field listed here requires an explicit
+# confirmation gate (--yes-i-understand) before it runs, because there is no
+# server-side trash or rollback: the DB record, and in many cases the media
+# file on disk, is gone for good.
+destructive:
+  # Raw DB access and whole-database operations.
+  - querySQL
+  - execSQL
+  - metadataImport      # wipes the database and re-imports from metadata dir
+  - anonymiseDatabase
+  - migrate
+  # Entity destroys (single + bulk). Several accept delete_file: true, which
+  # also unlinks the underlying media from disk.
+  - sceneDestroy
+  - scenesDestroy
+  - imageDestroy
+  - imagesDestroy
+  - galleryDestroy
+  - galleryChapterDestroy
+  - groupDestroy
+  - groupsDestroy
+  - movieDestroy        # deprecated alias of groupDestroy; still live, still deletes
+  - moviesDestroy       # deprecated alias of groupsDestroy
+  - performerDestroy
+  - performersDestroy
+  - studioDestroy
+  - studiosDestroy
+  - tagDestroy
+  - tagsDestroy
+  - sceneMarkerDestroy
+  - sceneMarkersDestroy
+  # File operations that remove media or DB file entries.
+  - deleteFiles         # deletes the files from disk
+  - destroyFiles        # removes file entries from the DB
+  # Saved filter destroy.
+  - destroySavedFilter
+  # Merges: the merged-from entities are absorbed and then destroyed.
+  - sceneMerge
+  - performerMerge
+  - tagsMerge
+  # Data-pruning jobs. metadataClean removes DB records (and, by default, the
+  # files) for media missing from disk; metadataCleanGenerated deletes generated
+  # files (sprites/vtt/screenshots/transcodes/blobs) lacking DB entries.
+  - metadataClean
+  - metadataCleanGenerated
+  # migrateBlobs is gated because its deleteOld:true permanently drops blob data
+  # from the old storage; the gate is per-root-field, so it cannot distinguish a
+  # deleteOld:false run and is conservatively gated.
+  - migrateBlobs
+jobReturning:
+  - migrate
+  - downloadFFMpeg
+  - importObjects
+  - metadataImport
+  - metadataExport
+  - metadataScan
+  - metadataGenerate
+  - metadataAutoTag
+  - metadataClean
+  - metadataCleanGenerated
+  - metadataIdentify
+  - migrateHashNaming
+  - migrateSceneScreenshots
+  - migrateBlobs
+  - optimiseDatabase
+  - installPackages
+  - updatePackages
+  - uninstallPackages
+  - stashBoxBatchPerformerTag
+  - stashBoxBatchStudioTag
+  - stashBoxBatchTagTag
