@@ -16,7 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // errPtr maps a job-error string to the nullable *string the generated types

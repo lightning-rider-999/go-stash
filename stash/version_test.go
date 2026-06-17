@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/schema"
+	"github.com/lightning-rider-999/go-stash/schema"
 )
 
 func versionServer(t *testing.T, status int, body string) *Client {

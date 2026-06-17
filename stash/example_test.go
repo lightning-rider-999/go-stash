@@ -10,7 +10,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // ExampleNewClient builds a client from explicit options. The URL is normalised

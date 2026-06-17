@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // fakeServer stands in for a Stash GraphQL endpoint. It records the last request

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/mockgql"
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/internal/mockgql"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // TestHTTPResponseAndRecording drives a real stash client against the mock over

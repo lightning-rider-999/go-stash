@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // TestLiveJobsSubscribeKeepalive opens jobsSubscribe over the live socket and

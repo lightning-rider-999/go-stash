@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/mod/semver"
 
-	"github.com/lightning-rider-999/go-stashapp/schema"
+	"github.com/lightning-rider-999/go-stash/schema"
 )
 
 // VersionInfo holds the Stash server's reported build identity.

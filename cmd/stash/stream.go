@@ -9,8 +9,8 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/redact"
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/internal/redact"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // streamForSpec dispatches a subscription leaf to its typed streamer. The three

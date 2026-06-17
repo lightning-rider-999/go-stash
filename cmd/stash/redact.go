@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/redact"
+	"github.com/lightning-rider-999/go-stash/internal/redact"
 )
 
 // redactAPIKeys scrubs the instance credential out of a payload before the

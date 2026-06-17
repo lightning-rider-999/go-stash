@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/redact"
+	"github.com/lightning-rider-999/go-stash/internal/redact"
 )
 
 // sampleJWT is a representative pre-signed API key. Its presence in any redacted

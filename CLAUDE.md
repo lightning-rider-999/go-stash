@@ -1,4 +1,4 @@
-# go-stashapp — a Go client/library & CLI for Stash's GraphQL API
+# go-stash — a Go client/library & CLI for Stash's GraphQL API
 
 Stash is a self-hosted organiser for an adult-video collection. This repo builds a reusable Go **client/library** for its GraphQL API, and a **CLI** on top. Read this whole file before touching anything here.
 

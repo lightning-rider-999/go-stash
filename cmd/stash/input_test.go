@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // leafFor finds the built leaf command for a spec's path in a fresh root tree,

@@ -1,9 +1,9 @@
 #!/bin/sh
-# install.sh — install the go-stashapp `stash` CLI on Linux or macOS.
+# install.sh — install the go-stash `stash` CLI on Linux or macOS.
 #
 # Usage (the headline path):
 #
-#   curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | sh
+#   curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/install.sh | sh
 #
 # This downloads the correct release archive for your OS/arch from GitHub
 # Releases, verifies its sha256 against the published checksums.txt, extracts the
@@ -20,7 +20,7 @@
 # POSIX sh: no bashisms (no [[ ]], no arrays), `set -eu`, everything quoted.
 #
 # Windows is not a curl|sh target. On Windows use:
-#   go install github.com/lightning-rider-999/go-stashapp/cmd/stash@latest
+#   go install github.com/lightning-rider-999/go-stash/cmd/stash@latest
 # or download a .zip from the Releases page.
 
 set -eu
@@ -38,7 +38,7 @@ fi
 # --- configuration -----------------------------------------------------------
 
 OWNER="lightning-rider-999"
-REPO="go-stashapp"
+REPO="go-stash"
 BINARY="stash"
 API_BASE="https://api.github.com/repos/${OWNER}/${REPO}"
 

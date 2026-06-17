@@ -1,11 +1,11 @@
-# go-stashapp
+# go-stash
 
 A Go client library and an agent-first command-line client for
 [Stash](https://github.com/stashapp/stash)'s GraphQL API.
 
 The repository ships two things from one typed surface:
 
-- **`stash`** — a reusable SDK (`github.com/lightning-rider-999/go-stashapp/stash`):
+- **`stash`** — a reusable SDK (`github.com/lightning-rider-999/go-stash/stash`):
   a configured `Client`, generated typed operations for every Stash GraphQL root
   field, a typed error model, bounded-concurrency batching, and reconnecting
   subscriptions.
@@ -22,7 +22,7 @@ server upgrade that drifts a field is a red build rather than a silent nil.
 **With Go** (the recommended path for a Go CLI):
 
 ```sh
-go install github.com/lightning-rider-999/go-stashapp/cmd/stash@latest
+go install github.com/lightning-rider-999/go-stash/cmd/stash@latest
 ```
 
 **Linux/macOS without Go** — download and install a prebuilt binary. The
@@ -30,21 +30,21 @@ installer detects your OS/arch, verifies the release's sha256 checksum, and
 installs to a directory on your PATH:
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/install.sh | sh
 ```
 
 Override the target directory or pin a version with environment variables:
 
 ```sh
 # Install into ~/.local/bin instead of the default (/usr/local/bin):
-curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | INSTALL_DIR="$HOME/.local/bin" sh
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/install.sh | INSTALL_DIR="$HOME/.local/bin" sh
 
 # Pin a specific release tag instead of the latest:
-curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stashapp/main/install.sh | VERSION=v1.2.3 sh
+curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/install.sh | VERSION=v1.2.3 sh
 ```
 
 **Manual** — download the archive for your platform from the
-[Releases page](https://github.com/lightning-rider-999/go-stashapp/releases),
+[Releases page](https://github.com/lightning-rider-999/go-stash/releases),
 verify it against `checksums.txt`, then extract the `stash` binary onto your
 PATH:
 
@@ -62,7 +62,7 @@ go build -o bin/stash ./cmd/stash
 **As a library** in another project:
 
 ```sh
-go get github.com/lightning-rider-999/go-stashapp/stash
+go get github.com/lightning-rider-999/go-stash/stash
 ```
 
 ## Configure
@@ -121,7 +121,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 func main() {
@@ -164,7 +164,7 @@ The SDK also offers `stash.Batch` / `stash.BatchResults` for bounded-concurrency
 fan-out, `stash.Subscribe` for reconnecting typed subscriptions, and a typed
 error model (`*stash.GraphQLError`, `*stash.TransportError`,
 `stash.ErrUnauthorized`). See the runnable examples in `stash/example_test.go`
-and the package documentation (`go doc github.com/lightning-rider-999/go-stashapp/stash`).
+and the package documentation (`go doc github.com/lightning-rider-999/go-stash/stash`).
 
 ## How generation works
 

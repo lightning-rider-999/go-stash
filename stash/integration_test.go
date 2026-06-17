@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lightning-rider-999/go-stashapp/schema"
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/schema"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // liveClient builds a client against the instance named by STASHAPP_URL, or
