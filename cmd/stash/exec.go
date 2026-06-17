@@ -8,7 +8,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // runOperation executes one operation as raw GraphQL and writes its response

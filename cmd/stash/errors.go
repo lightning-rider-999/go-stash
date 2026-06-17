@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/exitcode"
-	"github.com/lightning-rider-999/go-stashapp/internal/redact"
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/internal/exitcode"
+	"github.com/lightning-rider-999/go-stash/internal/redact"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // ExitCode is one entry of the frozen CLI exit-code taxonomy: a stable name and

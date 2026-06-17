@@ -10,7 +10,7 @@ import (
 
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // TestExitCodeTaxonomyFrozen guards the (name, integer) pairs against an

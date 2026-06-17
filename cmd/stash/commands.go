@@ -11,7 +11,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // commandSpec is one row of the generated operation table. The generator

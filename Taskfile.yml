@@ -1,4 +1,4 @@
-# Taskfile for go-stashapp. See https://taskfile.dev
+# Taskfile for go-stash. See https://taskfile.dev
 #
 # The rituals that gate every change live here:
 #   check     gofmt, build, vet, test -race, lint, tidy, codegen-freshness

@@ -1,4 +1,4 @@
-package gostashapp
+package gostash
 
 // Code generation pipeline. genops compiles the vendored SDL into genqlient
 // operations and fragments, the operation manifest, and the catalog; genqlient

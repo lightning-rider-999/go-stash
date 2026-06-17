@@ -39,4 +39,4 @@ bindings:
   PluginConfigMap:
     type: "map[string]interface{}"
   Upload:
-    type: github.com/lightning-rider-999/go-stashapp/stash.Upload
+    type: github.com/lightning-rider-999/go-stash/stash.Upload

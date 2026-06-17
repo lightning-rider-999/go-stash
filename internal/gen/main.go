@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lightning-rider-999/go-stashapp/internal/exitcode"
-	"github.com/lightning-rider-999/go-stashapp/schema"
+	"github.com/lightning-rider-999/go-stash/internal/exitcode"
+	"github.com/lightning-rider-999/go-stash/schema"
 	genops "github.com/trackness/graphql-opgen"
 )
 
@@ -35,7 +35,7 @@ func stashConfig() genops.Config {
 		},
 		Naming:               stashNaming(),
 		PathNamedAllowlist:   stashPathNamedAllowlist(),
-		TargetPackageImport:  "github.com/lightning-rider-999/go-stashapp/stash",
+		TargetPackageImport:  "github.com/lightning-rider-999/go-stash/stash",
 		OperationConstSuffix: "_Operation",
 		CommandTableDoc: []string{
 			"generatedCommands is the full operation table, one spec per Stash root",

@@ -1,11 +1,11 @@
-// Package gostashapp is the module root for go-stashapp, a Go client library
+// Package gostash is the module root for go-stash, a Go client library
 // and command-line interface for Stash's GraphQL API.
 //
 // Stash (https://github.com/stashapp/stash) is a self-hosted organiser whose
 // API is served at <base>/graphql and authenticated with an ApiKey header.
 //
 // The reusable SDK lives in the stash package
-// (github.com/lightning-rider-999/go-stashapp/stash); the agent-first CLI is
+// (github.com/lightning-rider-999/go-stash/stash); the agent-first CLI is
 // under cmd/stash. The typed GraphQL surface is generated from Stash's own
 // vendored SDL (the schema/ directory, stamped with the version it came from)
 // by the internal gen command, which drives the external genops compiler
@@ -28,7 +28,7 @@
 //
 // Everything the codegen emits is part of this module's public API surface: the
 // operation functions (for example
-// [github.com/lightning-rider-999/go-stashapp/stash.FindScenes]), the input and response
+// [github.com/lightning-rider-999/go-stash/stash.FindScenes]), the input and response
 // types and their nested fragment types, the per-operation query-string
 // constants (the *_Operation values), and the generated Get* accessor methods.
 // Because that surface is regenerated from the vendored SDL, an operation that
@@ -37,4 +37,4 @@
 // change for code that imported it. Pinning the module pins the SDL it was
 // generated against; reviewing the regenerated diff after a schema refresh is
 // how such breaks are caught before release.
-package gostashapp
+package gostash

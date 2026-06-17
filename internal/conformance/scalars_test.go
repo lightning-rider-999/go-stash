@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 )
 
 // TestScalarBindings is gate 3: each of Stash's custom scalars must be bound by

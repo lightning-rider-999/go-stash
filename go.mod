@@ -1,4 +1,4 @@
-module github.com/lightning-rider-999/go-stashapp
+module github.com/lightning-rider-999/go-stash
 
 go 1.26.4
 

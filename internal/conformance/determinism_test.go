@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/schema"
+	"github.com/lightning-rider-999/go-stash/schema"
 	genops "github.com/trackness/graphql-opgen"
 )
 

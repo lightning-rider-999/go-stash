@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/lightning-rider-999/go-stashapp/stash"
+import "github.com/lightning-rider-999/go-stash/stash"
 
 // generatedCommands is the full operation table, one spec per Stash root
 // field, sorted by OpName. buildRootCommand assembles these into the cobra

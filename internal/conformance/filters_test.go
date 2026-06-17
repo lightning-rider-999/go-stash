@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/stash"
+	"github.com/lightning-rider-999/go-stash/stash"
 	genops "github.com/trackness/graphql-opgen"
 	"github.com/vektah/gqlparser/v2/ast"
 )

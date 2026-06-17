@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lightning-rider-999/go-stashapp/schema"
+	"github.com/lightning-rider-999/go-stash/schema"
 	genops "github.com/trackness/graphql-opgen"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -142,7 +142,7 @@ func stashConfig() genops.Config {
 			"Folder":           "self-referential folder tree — parent_folder / parent_folders / sub_folders",
 			"BasicFile":        "file metadata cycling via parent_folder / zip_file",
 		},
-		TargetPackageImport:  "github.com/lightning-rider-999/go-stashapp/stash",
+		TargetPackageImport:  "github.com/lightning-rider-999/go-stash/stash",
 		OperationConstSuffix: "_Operation",
 		CommandTableDoc: []string{
 			"generatedCommands is the full operation table, one spec per Stash root",
