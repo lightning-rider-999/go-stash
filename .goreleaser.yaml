@@ -1,0 +1,110 @@
+# GoReleaser configuration for the `stash` CLI.
+#
+# A pushed `v*` git tag triggers .github/workflows/release.yml, which runs
+# `goreleaser release --clean` to build the cross-platform binaries and publish
+# them on a GitHub Release. Validate locally with `goreleaser check` and dry-run
+# with `goreleaser release --snapshot --clean`.
+#
+# Docs: https://goreleaser.com
+version: 2
+
+project_name: stash
+
+before:
+  hooks:
+    # A release builds the committed module graph; it must not reshape it.
+    # Download deps, then verify them against go.sum — never `go mod tidy`,
+    # which would mutate go.mod/go.sum mid-release.
+    - go mod download
+    - go mod verify
+
+builds:
+  - id: stash
+    main: ./cmd/stash
+    binary: stash
+    # The CLI is pure Go (no sqlite/CGO deps), so a static cross-compile is
+    # correct for every target in the matrix.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # -trimpath strips absolute CI/workspace paths from the binary so the same
+    # input tree yields byte-identical output on any machine (reproducibility).
+    flags:
+      - -trimpath
+    # Strip DWARF/symbol tables and inject build info into package main. These
+    # -X paths are the release contract with cmd/stash/main.go's version vars.
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      # Commit time, not build wall-clock, so the stamp is reproducible and
+      # matches the mod_timestamp source below.
+      - -X main.date={{ .CommitDate }}
+    # Pin the binary's build timestamp to the commit time for reproducible
+    # builds (same input tree -> byte-identical output).
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: stash
+    ids:
+      - stash
+    # tar.gz everywhere except Windows, which gets a zip.
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # Ship the LICENSE alongside the binary so the grant travels with the
+    # artifact; the README is online and adds nothing to a single-binary CLI
+    # archive. tar.gz/zip both preserve the binary's exec bit, so extract-and-run
+    # needs no chmod.
+    files:
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    # Drop chore-noise commits from the release notes; keep feat/fix/etc.
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "^refactor:"
+      - "merge conflict"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  # Publish as a full release (not a draft) so the tag push ships immediately.
+  draft: false
+  # Mark pre-release automatically for tags like v1.2.3-rc1.
+  prerelease: auto
+
+snapshot:
+  # Local `--snapshot` builds get a deterministic, sortable version stamp.
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"

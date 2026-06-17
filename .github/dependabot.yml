@@ -1,0 +1,29 @@
+# Dependabot keeps dependencies current. The GitHub Actions ecosystem matters
+# most here: the workflow actions are pinned to immutable commit SHAs (with a
+# trailing `# vX.Y.Z` comment), and Dependabot understands that convention —
+# it bumps the SHA and rewrites the version comment when a new release lands,
+# so pinning stays secure without going stale.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      # One PR per week for routine action bumps instead of one per action.
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      go-modules:
+        patterns:
+          - "*"
