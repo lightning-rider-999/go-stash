@@ -1,7 +1,7 @@
 # Taskfile for go-stash. See https://taskfile.dev
 #
 # The rituals that gate every change live here:
-#   check     gofmt, build, vet, test -race, lint, tidy, codegen-freshness
+#   check     gofmt, build, vet, test -race, lint, tidy, codegen-freshness, docs-freshness
 #   generate  regenerate the typed surface (genops, then genqlient)
 #   build     compile the stash CLI
 #   schema    refresh the vendored Stash SDL at the pinned tag, re-stamp, regenerate
@@ -13,7 +13,7 @@ version: '3'
 
 tasks:
   check:
-    desc: All quality gates — gofmt, build, vet, test -race, lint, tidy, codegen freshness.
+    desc: All quality gates — gofmt, build, vet, test -race, lint, tidy, codegen freshness, docs freshness.
     cmds:
       - cmd: |
           unformatted=$(gofmt -l .)
@@ -35,11 +35,24 @@ tasks:
         schema/catalog.json schema/version_gen.go
         stash/operations_gen.go
         cmd/stash/gen_commands.go cmd/stash/catalog.json
+      - task: gen-docs
+      # Docs freshness: the generated CLI reference must track the command tree.
+      # Regenerate it (above), then diff only the generated pages — so a command
+      # added/renamed without regenerating docs is a red build. Scoped to
+      # docs/cli so hand-written docs (docs/AGENTS.md) never trip the gate.
+      - git diff --exit-code -- docs/cli
 
   generate:
     desc: Regenerate the typed GraphQL surface (genops then genqlient, via go:generate directives).
     cmds:
       - go generate ./...
+
+  gen-docs:
+    desc: Regenerate the generated CLI reference (docs/cli) from the cobra command tree.
+    cmds:
+      # Opt-in generator test; deterministic (DisableAutoGenTag set on every
+      # command, cobra sorts pages and contents by name).
+      - GEN_CLI_DOCS=1 go test ./cmd/stash -run TestGenerateCLIDocs
 
   build:
     desc: Build the stash CLI to ./bin/stash.
