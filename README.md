@@ -25,6 +25,15 @@ server upgrade that drifts a field is a red build rather than a silent nil.
 go install github.com/lightning-rider-999/go-stash/cmd/stash@latest
 ```
 
+**Homebrew (macOS / Linux)** — install the prebuilt binary from the tap:
+
+```sh
+brew install lightning-rider-999/tap/stash
+```
+
+On Homebrew 6.0+ the fully-qualified `owner/tap/name` auto-taps and trusts the
+tap in one step, so no separate `brew tap` is needed.
+
 **Linux/macOS without Go** — download and install a prebuilt binary. The
 installer detects your OS/arch, verifies the release's sha256 checksum, and
 installs to a directory on your PATH:
