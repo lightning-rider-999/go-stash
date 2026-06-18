@@ -108,3 +108,44 @@ release:
 snapshot:
   # Local `--snapshot` builds get a deterministic, sortable version stamp.
   version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
+
+# Publish a Homebrew cask to the alt-identity tap so `brew install
+# lightning-rider-999/tap/stash` works. Casks (not the deprecated `brews:`
+# formula) are the supported path as of GoReleaser v2.10+. GoReleaser pushes
+# the generated cask from CI using the HOMEBREW_TAP_GITHUB_TOKEN PAT, so the
+# commit_author below is the ONLY control over the tap commit's identity.
+homebrew_casks:
+  - name: stash
+    # Pull the binary from the `stash` build's archives.
+    ids:
+      - stash
+    # The executable shipped inside the archive that the cask links onto PATH.
+    binaries:
+      - stash
+    homepage: "https://github.com/lightning-rider-999/go-stash"
+    description: "Go client/library & CLI for the stash GraphQL API"
+    repository:
+      owner: lightning-rider-999
+      name: homebrew-tap
+      branch: main
+      # PAT with write access to the tap repo; injected by CI (see
+      # .github/workflows/release.yml). Distinct from the release GITHUB_TOKEN,
+      # which only scopes to this repo.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    # CI pushes the tap commit, not local git — so this author is the sole
+    # guarantee the tap commit lands as the alt identity, not the CI bot.
+    commit_author:
+      name: lightning-rider-999
+      email: 293808812+lightning-rider-999@users.noreply.github.com
+    # `auto` skips the tap push for snapshots/pre-releases, so a dry-run or an
+    # rc tag never mutates the tap; only a real release publishes.
+    skip_upload: auto
+    hooks:
+      post:
+        # Gatekeeper quarantines anything downloaded without a notarised
+        # signature; strip the attribute on install so the unsigned binary runs
+        # on macOS without a security prompt.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/stash"]
+          end
