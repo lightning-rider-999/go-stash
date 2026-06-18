@@ -43,6 +43,13 @@ curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/in
 curl -sSL https://raw.githubusercontent.com/lightning-rider-999/go-stash/main/install.sh | VERSION=v1.2.3 sh
 ```
 
+**Homebrew (macOS/Linux)** — tap is live; the formula tracks each release and
+keeps `stash` on your PATH with `brew upgrade`:
+
+```sh
+brew install lightning-rider-999/tap/stash
+```
+
 **Manual** — download the archive for your platform from the
 [Releases page](https://github.com/lightning-rider-999/go-stash/releases),
 verify it against `checksums.txt`, then extract the `stash` binary onto your
@@ -170,8 +177,7 @@ and the package documentation (`go doc github.com/lightning-rider-999/go-stash/s
 
 The typed surface is built by two steps, run in order by `go generate`:
 
-1. **`internal/gen`** drives the schema-agnostic
-   [`graphql-opgen`](https://github.com/trackness/graphql-opgen) generator over
+1. **`internal/gen`** drives a schema-agnostic GraphQL operation generator over
    the vendored SDL under `schema/`, supplying the Stash-specific config (naming
    irregulars, exit-code vocabulary, path-named allowlist). It emits the genqlient
    operations and fragments, the operation manifest, the CLI command table
@@ -222,6 +228,20 @@ task vuln     # govulncheck (stdlib + dependency CVEs)
 `task check`'s codegen-freshness step regenerates the typed surface and fails if
 any committed generated artifact changed, so the vendored schema and the typed
 client can never silently drift apart.
+
+## Related projects
+
+- **[go-stashbox](https://github.com/lightning-rider-999/go-stashbox)** — the
+  sibling client for [stash-box](https://github.com/stashapp/stash-box) /
+  [StashDB](https://stashdb.org), the community metadata database. Same
+  generated-from-SDL, agent-first shape as this repo, but read-only: it queries
+  scenes, performers, studios, tags, and their fingerprints rather than driving a
+  Stash server.
+- **[lightning-rider-plugins](https://github.com/lightning-rider-999/lightning-rider-plugins)**
+  — a Claude Code plugin marketplace whose thin, skill-only plugins drive these
+  CLIs. The `stash` plugin pre-approves the binary, checks it is installed, and
+  discovers the live operation surface from `stash catalog` rather than a
+  snapshot that drifts.
 
 ## License
 
