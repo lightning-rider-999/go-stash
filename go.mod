@@ -4,8 +4,8 @@ go 1.26.4
 
 require (
 	github.com/spf13/cobra v1.10.2
-	github.com/trackness/graphql-opgen v0.1.0
-	github.com/vektah/gqlparser/v2 v2.5.34
+	github.com/trackness/graphql-opgen v0.1.1
+	github.com/vektah/gqlparser/v2 v2.5.35
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
