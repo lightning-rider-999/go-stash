@@ -72,7 +72,7 @@ func TestPartialUpdate(t *testing.T) {
 
 	// Execute so the genqlient request is built and marshalled onto the wire.
 	var out bytes.Buffer
-	if err := runOperation(context.Background(), c, spec, vars, "json", &out); err != nil {
+	if err := runOperation(context.Background(), c, spec, vars, "json", &out, false); err != nil {
 		t.Fatalf("runOperation: %v", err)
 	}
 

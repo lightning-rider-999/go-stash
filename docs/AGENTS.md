@@ -87,6 +87,32 @@ Fields:
 `graphqlErrors` and `field` are omitted when empty. `code`, `message`, and
 `retryable` are always present.
 
+## Partial results: `--allow-partial`
+
+By default a GraphQL response that carries an `errors` array is a total failure:
+the CLI discards any data the server returned and writes only the error
+envelope. This is correct for a server that drifted from its own schema (e.g. a
+field declared non-null that resolves to null and bubbles up), but it means a
+response whose *other* fields are intact yields nothing usable.
+
+`--allow-partial` (a persistent flag, valid on any operation command) opts into
+recovering that data. When the server returns **HTTP 200** with **both** a `data`
+payload **and** an `errors` array, the CLI writes the partial `data` to stdout in
+the chosen format **and still** writes the error envelope to stderr **and still**
+exits with the same non-zero code it would have used otherwise. The flag never
+silences the error; it only stops the data being thrown away.
+
+The contract consequence an agent must handle: **with `--allow-partial`, a
+non-zero exit can accompany usable JSON on stdout.** The default invariant
+(stdout only on success, exit 0) does not hold under this flag. Read stdout for
+the recovered data, and inspect the exit code / stderr envelope for the caveat.
+
+The flag is inert (no behaviour change) when the response is a non-2xx transport
+failure (no data is decoded), when the whole payload bubbled to `null`, on a
+successful (no-errors) response, and on subscriptions. When the underlying
+server bug is fixed upstream the response carries no `errors`, so the command
+returns to a clean exit 0 and the flag becomes a no-op.
+
 ## Input: variables and convenience flags
 
 Operation variables come from `--input` (a JSON file path, or `-` for stdin):

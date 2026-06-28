@@ -13,6 +13,7 @@ stash [flags]
 ### Options
 
 ```
+      --allow-partial    on an HTTP-200 response that also carries GraphQL errors, still print the partial data to stdout; the error envelope and non-zero exit are unchanged
       --api-key string   Stash API key (default $STASHAPP_API_KEY)
   -h, --help             help for stash
       --input string     variables source: JSON file path, or "-" for stdin

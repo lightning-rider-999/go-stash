@@ -52,6 +52,7 @@ type commandSpec struct {
 //	--api-key    Stash API key (falls back to STASHAPP_API_KEY in the client)
 //	--output/-o  output format: json (default), ndjson, table, yaml
 //	--input      variables source: a JSON file path, or "-" for stdin
+//	--allow-partial  surface partial data from a 200 response that also carried GraphQL errors
 //
 // Security note on --api-key: passing the key on the command line exposes it to
 // any other user via the process listing (ps/proc) and writes it into shell
@@ -108,6 +109,9 @@ func buildRootCommand() *cobra.Command {
 	root.PersistentFlags().String("api-key", "", "Stash API key (default $STASHAPP_API_KEY)")
 	root.PersistentFlags().StringP("output", "o", "json", "output format: "+strings.Join(outputFormats, ", "))
 	root.PersistentFlags().String("input", "", "variables source: JSON file path, or \"-\" for stdin")
+	root.PersistentFlags().Bool("allow-partial", false,
+		"on an HTTP-200 response that also carries GraphQL errors, still print the "+
+			"partial data to stdout; the error envelope and non-zero exit are unchanged")
 
 	// groups caches intermediate group commands by their joined prefix so a
 	// resource group (scene) is created once and shared by all its leaves.
@@ -289,7 +293,8 @@ func newLeafCommandResolver(spec commandSpec, resolve clientResolver) *cobra.Com
 		}
 
 		format, _ := cmd.Flags().GetString("output")
-		return runOperation(cmd.Context(), client, spec, vars, format, cmd.OutOrStdout())
+		allowPartial, _ := cmd.Flags().GetBool("allow-partial")
+		return runOperation(cmd.Context(), client, spec, vars, format, cmd.OutOrStdout(), allowPartial)
 	}
 	return leaf
 }

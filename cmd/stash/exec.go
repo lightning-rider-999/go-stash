@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -27,13 +28,33 @@ import (
 //
 // format selects the output rendering (--output); writeOutput redacts API keys
 // and renders the response data. An empty format defaults to json.
-func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars map[string]json.RawMessage, format string, out io.Writer) error {
+//
+// allowPartial enables the --allow-partial behaviour. On an HTTP-200 response
+// that carries both data and a GraphQL errors array (e.g. a non-null field that
+// bubbled to null but left sibling data intact), genqlient has already decoded
+// the partial data before returning the error; with allowPartial set, that data
+// is still written to out while the classified GraphQL error is returned
+// unchanged, so the caller emits the error envelope and exits non-zero. Off by
+// default the error simply propagates and nothing is written. The flag has no
+// effect on a non-2xx response (no data is decoded there) or when the whole
+// payload bubbled to null (len(data) == 0).
+func runOperation(ctx context.Context, c *stash.Client, spec commandSpec, vars map[string]json.RawMessage, format string, out io.Writer, allowPartial bool) error {
 	var data json.RawMessage
 	req := requestFor(spec, vars)
 	resp := &graphql.Response{Data: &data}
 
 	if err := c.GraphQL().MakeRequest(ctx, req, resp); err != nil {
-		return classifyError(err)
+		classified := classifyError(err)
+		// A 200 carrying both data and errors yields a *stash.GraphQLError with
+		// `data` already populated; a non-2xx yields a *stash.TransportError with
+		// no data, which this type guard excludes. Surface the partial data, then
+		// still return the error so the envelope and non-zero exit are unchanged.
+		if _, ok := errors.AsType[*stash.GraphQLError](classified); allowPartial && ok && len(data) > 0 {
+			if werr := writeOutput(out, format, spec, data); werr != nil {
+				return werr
+			}
+		}
+		return classified
 	}
 	return writeOutput(out, format, spec, data)
 }

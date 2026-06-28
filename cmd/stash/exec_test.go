@@ -63,7 +63,7 @@ func TestRunOperationData(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := runOperation(context.Background(), c, spec, nil, "json", &out); err != nil {
+	if err := runOperation(context.Background(), c, spec, nil, "json", &out, false); err != nil {
 		t.Fatalf("runOperation: %v", err)
 	}
 
@@ -100,7 +100,7 @@ func TestRunOperationForwardsVariables(t *testing.T) {
 
 	vars := map[string]json.RawMessage{"id": json.RawMessage(`"42"`)}
 	var out bytes.Buffer
-	if err := runOperation(context.Background(), c, spec, vars, "json", &out); err != nil {
+	if err := runOperation(context.Background(), c, spec, vars, "json", &out, false); err != nil {
 		t.Fatalf("runOperation: %v", err)
 	}
 	if !bytes.Contains(fs.lastBody, []byte(`"id":"42"`)) {
@@ -120,7 +120,7 @@ func TestRunOperationGraphQLError(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := runOperation(context.Background(), c, spec, nil, "json", &out)
+	err := runOperation(context.Background(), c, spec, nil, "json", &out, false)
 	if err == nil {
 		t.Fatal("expected a GraphQL error, got nil")
 	}
@@ -155,7 +155,7 @@ func TestRunOperationUsesStashClassify(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := runOperation(context.Background(), c, spec, nil, "json", &out)
+	err := runOperation(context.Background(), c, spec, nil, "json", &out, false)
 	if err == nil {
 		t.Fatal("expected a transport error from runOperation")
 	}
@@ -184,5 +184,119 @@ func TestWriteJSONNullData(t *testing.T) {
 	}
 	if strings.TrimSpace(out.String()) != "null" {
 		t.Errorf("empty data = %q, want null", out.String())
+	}
+}
+
+// TestRunOperationAllowPartial covers the core of --allow-partial: an HTTP-200
+// response carrying BOTH data and a GraphQL errors array (the non-null-bubble
+// shape, e.g. plugins). With the flag the partial data is written to stdout AND
+// the classified error is still returned (so the envelope + non-zero exit are
+// unchanged); without it, the data is discarded as before.
+func TestRunOperationAllowPartial(t *testing.T) {
+	body := `{"data":{"findScene":{"id":"42","title":"keep me"}},` +
+		`"errors":[{"message":"the requested element is null which the schema does not allow","path":["findScene","studio"]}]}`
+	fs := newFakeServer(t, body)
+	c := fs.client(t)
+	spec := commandSpec{
+		Path:       []string{"scene", "get"},
+		OpName:     "FindScene",
+		Query:      stash.FindScene_Operation,
+		Kind:       "query",
+		ReturnType: "Scene",
+	}
+
+	// allowPartial=true: partial data on stdout, error still returned.
+	var out bytes.Buffer
+	err := runOperation(context.Background(), c, spec, nil, "json", &out, true)
+	if err == nil {
+		t.Fatal("allowPartial must still return the GraphQL error, got nil")
+	}
+	if _, ok := errors.AsType[*stash.GraphQLError](err); !ok {
+		t.Fatalf("error = %T (%v), want *stash.GraphQLError", err, err)
+	}
+	if got := classifyExit(err); got != ExitServerFault {
+		t.Errorf("classifyExit = %+v, want %+v", got, ExitServerFault)
+	}
+	if !strings.Contains(out.String(), `"keep me"`) {
+		t.Errorf("partial data not written to stdout: %q", out.String())
+	}
+
+	// allowPartial=false (default): nothing on stdout, same error.
+	var off bytes.Buffer
+	if err := runOperation(context.Background(), c, spec, nil, "json", &off, false); err == nil {
+		t.Fatal("expected the GraphQL error without allowPartial")
+	}
+	if off.Len() != 0 {
+		t.Errorf("default path wrote data to stdout: %q", off.String())
+	}
+}
+
+// TestRunOperationAllowPartialNullData proves the len(data) > 0 guard: a
+// top-level non-null bubble nulls the whole payload, so there is nothing to
+// surface and --allow-partial is the unchanged failure.
+func TestRunOperationAllowPartialNullData(t *testing.T) {
+	fs := newFakeServer(t, `{"data":null,"errors":[{"message":"boom"}]}`)
+	c := fs.client(t)
+	spec := commandSpec{
+		Path:   []string{"scene", "get"},
+		OpName: "FindScene",
+		Query:  stash.FindScene_Operation,
+		Kind:   "query",
+	}
+	var out bytes.Buffer
+	err := runOperation(context.Background(), c, spec, nil, "json", &out, true)
+	if err == nil {
+		t.Fatal("expected the GraphQL error")
+	}
+	if out.Len() != 0 {
+		t.Errorf("allowPartial wrote output for a null-data response: %q", out.String())
+	}
+}
+
+// TestRunOperationAllowPartialNonHTTP200 proves the flag is inert on a non-2xx:
+// genqlient never decodes data there, so there is nothing to surface and the
+// transport failure is unchanged.
+func TestRunOperationAllowPartialNonHTTP200(t *testing.T) {
+	fs := newFakeServerStatus(t, http.StatusBadGateway,
+		`{"data":{"findScene":{"id":"1"}},"errors":[{"message":"upstream"}]}`)
+	c := fs.client(t)
+	spec := commandSpec{
+		Path:   []string{"scene", "get"},
+		OpName: "FindScene",
+		Query:  stash.FindScene_Operation,
+		Kind:   "query",
+	}
+	var out bytes.Buffer
+	err := runOperation(context.Background(), c, spec, nil, "json", &out, true)
+	if err == nil {
+		t.Fatal("expected a transport error")
+	}
+	if out.Len() != 0 {
+		t.Errorf("allowPartial surfaced data on a non-2xx response: %q", out.String())
+	}
+	var te *stash.TransportError
+	if !errors.As(err, &te) {
+		t.Fatalf("error = %T, want *stash.TransportError", err)
+	}
+}
+
+// TestAllowPartialFlagThreadsThroughRoot is the end-to-end proof that the
+// persistent --allow-partial flag reaches runOperation through the real cobra
+// tree: a 200 data+errors response prints data on stdout and still exits non-zero.
+func TestAllowPartialFlagThreadsThroughRoot(t *testing.T) {
+	body := `{"data":{"findScene":{"id":"7","title":"survivor"}},` +
+		`"errors":[{"message":"the requested element is null which the schema does not allow"}]}`
+	fs := newFakeServer(t, body)
+	root := buildRootCommand()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"scene", "get", "--url", fs.srv.URL, "--allow-partial"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Fatal("expected the GraphQL error to still propagate (non-zero exit)")
+	}
+	if !strings.Contains(out.String(), "survivor") {
+		t.Errorf("partial data not on stdout via --allow-partial: %q", out.String())
 	}
 }

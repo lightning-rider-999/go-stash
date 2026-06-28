@@ -243,7 +243,7 @@ func TestExitCodes(t *testing.T) {
 				Kind:   "query",
 			}
 			var out bytes.Buffer
-			err := runOperation(context.Background(), c, spec, nil, "json", &out)
+			err := runOperation(context.Background(), c, spec, nil, "json", &out, false)
 			if err == nil {
 				t.Fatal("expected an error from runOperation")
 			}
@@ -272,7 +272,7 @@ func TestExitCodes(t *testing.T) {
 			ReturnType: "Scene",
 		}
 		var out bytes.Buffer
-		if err := runOperation(context.Background(), c, spec, nil, "json", &out); err != nil {
+		if err := runOperation(context.Background(), c, spec, nil, "json", &out, false); err != nil {
 			t.Fatalf("runOperation: %v", err)
 		}
 		if got := classifyExit(nil); got != ExitOK {
