@@ -27,9 +27,9 @@ jobs:
     name: check (test -race, lint, govulncheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           # Reads the `go 1.26.x` directive; GOTOOLCHAIN=auto fetches it if the
           # runner ships an older toolchain.
@@ -37,7 +37,7 @@ jobs:
           cache: true
 
       - name: Install Task
-        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        uses: arduino/setup-task@c0bc642852239c2689f73f4ea6459c29405f3c52 # v3.0.0
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,7 +45,7 @@ jobs:
       - name: Install golangci-lint
         # v8 is the action major that targets golangci-lint v2.x; `install-only`
         # puts the binary on PATH so `task check` can run it.
-        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.12.2
           install-mode: binary
@@ -69,7 +69,7 @@ jobs:
       # Required for GoReleaser to create the GitHub Release and upload assets.
       contents: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # GoReleaser needs the full history (and the pushed tag) to build the
           # changelog and resolve the version.
@@ -78,7 +78,7 @@ jobs:
           # git credential helper, so the persisted checkout token is unneeded.
           persist-credentials: false
 
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           # Reads the `go 1.26.x` directive; GOTOOLCHAIN=auto fetches it if the
           # runner ships an older toolchain.
@@ -86,7 +86,7 @@ jobs:
           cache: true
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           version: "~> v2"
           args: release --clean
